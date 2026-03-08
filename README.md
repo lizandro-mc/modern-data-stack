@@ -21,6 +21,9 @@
 - [Parte 4 · Aprovechar](#-parte-4--aprovechar--80)
 - [Parte 5 · Orquestador](#-parte-5--orquestador--100)
 - [Detalle por Capa](#-detalle-por-capa)
+- [SCD — Dimensiones que Cambian Lentamente](#-scd--dimensiones-que-cambian-lentamente)
+- [Glosario de Términos y Siglas](#-glosario-de-términos-y-siglas)
+- [Recursos de Aprendizaje Recomendados](#-recursos-de-aprendizaje-recomendados)
 - [Instalación](#-instalación)
 
 ---
@@ -440,8 +443,6 @@ Gold (wh_gold)
 
 ## 📚 Detalle por Capa
 
----
-
 ### 📥 EXTRAER
 
 > Ingesta desde fuentes heterogéneas. Identificar por sistema origen, no por dominio de negocio.
@@ -508,20 +509,6 @@ Workspaces:      {org}-fabric-dev · {org}-fabric-stage · {org}-fabric-prod
 Pipelines ADF:   pl_load_{sistema}_{entidad}_{frecuencia}
 ```
 
-**Ambientes Dev / Stage / Prod en Fabric**
-```
-fabric-dev    → lh_raw_crm (datos sintéticos / muestra)
-fabric-stage  → lh_raw_crm (copia reciente de prod, anonimizada)
-fabric-prod   → lh_raw_crm (datos reales, RBAC restrictivo)
-```
-
-**Mejores prácticas con Azure Data Factory**
-- Usar **Copy Activity** con mapeo explícito de columnas de auditoría
-- Activar **logging detallado** en cada Copy Activity
-- Parametrizar pipelines: mismo pipeline, distintos sistemas con variables
-- **Checkpoint y reinicio** desde el último punto exitoso en cargas largas
-- Separar pipelines de ingesta full vs incremental vs CDC
-
 **Herramientas**
 
 | Herramienta | Descripción | Docs |
@@ -570,21 +557,6 @@ Tags dbt:       daily · weekly · critical · pii
 
 > Una definición de negocio, múltiples consumidores. dbt + Fabric = Única Fuente de Verdad.
 
-**Mejores prácticas**
-- Definir cada métrica una sola vez en dbt Semantic Layer
-- Fabric Semantic Model consume Gold vía DirectLake — cero copia
-- Versionar definiciones de métricas como cualquier otro código
-- Un Semantic Model por dominio de negocio
-- Exponer vía API REST para Azure ML y apps externas
-
-**Nomenclatura**
-```
-Métricas dbt:         {nombre_metrica}     ej. ingresos_netos_mensuales
-Dimensiones:          dim_{entidad}        ej. dim_cliente · dim_fecha
-Hechos:               fct_{proceso}        ej. fct_ventas · fct_pagos
-Semantic Models:      sm_{dominio}         ej. sm_ventas · sm_finanzas
-```
-
 **Herramientas**
 
 | Herramienta | Descripción | Docs |
@@ -600,21 +572,6 @@ Semantic Models:      sm_{dominio}         ej. sm_ventas · sm_finanzas
 
 > El dato genera valor: BI, ML, IA Generativa, Feature Engineering. Dato como Feature (DaaF).
 
-**Mejores prácticas**
-- Power BI conecta SIEMPRE al Semantic Model via DirectLake — nunca a tablas crudas
-- Feature Store centralizado para consistencia entrenamiento/inferencia
-- Versionar modelos ML con MLflow en Azure ML Workspace
-- RAG con Azure OpenAI + Azure AI Search sobre datos del Lakehouse
-- Fabric Notebooks para Feature Engineering sobre OneLake con PySpark
-
-**Nomenclatura**
-```
-Experimentos ML:  {proyecto}_{algoritmo}_{version}    ej. churn_xgboost_v3
-Features:         {entidad}_{caracteristica}_{ventana} ej. cliente_compras_30d
-Reportes PBI:     RPT_{dominio}_{nombre}               ej. RPT_Ventas_Ejecutivo
-Endpoints ML:     ep_{modelo}_{entorno}                ej. ep_churn_prod
-```
-
 **Herramientas**
 
 | Herramienta | Descripción | Docs |
@@ -629,23 +586,6 @@ Endpoints ML:     ep_{modelo}_{entorno}                ej. ep_churn_prod
 
 ### 🗄️ ALMACENAR
 
-> OneLake como Single Store. Delta/Parquet abierto. Sin copias entre capas — solo punteros.
-
-**Mejores prácticas**
-- OneLake como única fuente de verdad física
-- Delta Lake como formato base: ACID, time travel, schema evolution
-- Lakehouse items para Bronze/Silver, Warehouse para Gold/Semántica
-- Managed Identity siempre — nunca connection strings en código
-- F-SKUs: escalar por dominio según demanda real
-
-**Nomenclatura**
-```
-Lakehouse items: lh_{capa}_{dominio}   ej. lh_bronze_crm · lh_silver · lh_gold
-Warehouse items: wh_{dominio}          ej. wh_ventas · wh_finanzas
-Workspaces:      {org}-fabric-{env}    ej. acme-fabric-prod
-Schemas:         {capa}_{dominio}      ej. silver_clientes · gold_ventas
-```
-
 **Herramientas**
 
 | Herramienta | Descripción | Docs |
@@ -659,23 +599,16 @@ Schemas:         {capa}_{dominio}      ej. silver_clientes · gold_ventas
 
 ### 🛡️ GOBERNAR
 
-> One Governance con Purview + Fabric. Catálogo, linaje, contratos y RBAC desde el primer día.
+**RBAC — Matriz de Acceso por Capa**
 
-**Mejores prácticas**
-- Registrar todos los activos en Purview desde el día 1
-- Data Contracts por fuente: schema, SLA, propietario (`meta.owner` en dbt)
-- RBAC granular: acceso mínimo por rol y workspace de Fabric
-- dbt Tests como contratos ejecutables en cada pipeline
-- Code Review obligatorio con PR para cambios en modelos dbt Gold
-- One Access Control Experience de Fabric: un solo punto de control
-
-**Nomenclatura**
-```
-Dominios Purview:  {area_negocio}      ej. Finanzas · Clientes · Operaciones
-Clasificaciones:   PII · Confidencial · Interno · Público
-Roles Fabric:      Admin · Member · Contributor · Viewer (por workspace)
-Contratos dbt:     contract_{sistema}_{entidad}_v{N}.yaml
-```
+| Capa | DataOwner | DataEngineer | DataReader | MLEngineer |
+|------|-----------|--------------|------------|------------|
+| Raw Lakehouse | ✅ | ✅ | ❌ | ❌ |
+| Bronze | ✅ | ✅ | ❌ | ❌ |
+| Silver | ✅ | ✅ | ❌ | ✅ |
+| Gold | ✅ | ✅ | ✅ lectura | ✅ |
+| Semantic Model | ✅ | ✅ | ✅ lectura | ✅ |
+| Power BI Reports | ✅ | ✅ | ✅ | ✅ |
 
 **Herramientas**
 
@@ -690,24 +623,6 @@ Contratos dbt:     contract_{sistema}_{entidad}_v{N}.yaml
 
 ### 🔭 OBSERVABILIDAD
 
-> Detectar problemas de datos antes de impactar al negocio. Fabric Monitoring Hub + Elementary.
-
-**Mejores prácticas**
-- Métricas de calidad por dataset: completitud, unicidad, frescura
-- Alertas automáticas cuando los datos no llegan en el SLA
-- Linaje end-to-end con Purview + dbt Artifacts
-- dbt Docs publicados como referencia interna
-- Monitoring Hub de Fabric para visibilidad de todos los jobs
-
-**Nomenclatura**
-```
-Alertas:  alert_{severidad}_{pipeline}_{condicion}
-          ej. alert_P1_ingest_clientes_delay
-Métricas: {entidad}_{dimension}
-          ej. clientes_completitud · ventas_frescura
-Tags:     criticidad=alta · dominio=ventas · propietario=equipo_data
-```
-
 **Herramientas**
 
 | Herramienta | Descripción | Docs |
@@ -721,24 +636,6 @@ Tags:     criticidad=alta · dominio=ventas · propietario=equipo_data
 
 ### 🤖 ORQUESTADOR
 
-> Sistema nervioso central. ADF orquesta ingesta, dbt Jobs transforma, Airflow gestiona DAGs complejos.
-
-**Mejores prácticas**
-- DAGs explícitos — nunca cron sin gestión de dependencias
-- ADF orquesta ingesta, dbt transforma — separar responsabilidades
-- dbt Jobs en Fabric para ejecutar transformaciones en el mismo motor
-- Mismo DAG en dev/stage/prod vía variables de entorno
-
-**Nomenclatura**
-```
-DAGs Airflow:  {dominio}_{proceso}_{frecuencia}
-               ej. ventas_ingesta_diaria
-Pipelines ADF: pl_{accion}_{sistema}_{destino}
-               ej. pl_copy_crm_lh_raw
-Jobs dbt:      job_{env}_{tipo}_{frecuencia}
-               ej. job_prod_incremental_daily
-```
-
 **Herramientas**
 
 | Herramienta | Descripción | Docs |
@@ -747,6 +644,243 @@ Jobs dbt:      job_{env}_{tipo}_{frecuencia}
 | dbt Jobs on Fabric | Transformaciones directo sobre Fabric | [→](https://docs.getdbt.com/docs/deploy/job-settings) |
 | Apache Airflow | DAGs Python para orquestación compleja | [→](https://airflow.apache.org/docs/) |
 | Fabric Data Pipelines | Pipelines nativos integrados con OneLake | [→](https://learn.microsoft.com/es-es/fabric/data-factory/data-factory-overview) |
+
+---
+
+## 🔄 SCD — Dimensiones que Cambian Lentamente
+
+> Las **Slowly Changing Dimensions (SCD)** son el patrón para manejar cambios históricos en las tablas dimensionales (clientes, productos, empleados). Elegir el tipo correcto define cómo el Warehouse preserva o sobreescribe el historial.
+
+### Comparativa de Tipos SCD
+
+| Tipo | Nombre | Comportamiento | Cuándo usarlo | Ejemplo |
+|------|--------|----------------|---------------|---------|
+| **SCD 0** | Fija | No se actualiza jamás | Datos inmutables por definición | País de nacimiento |
+| **SCD 1** | Sobreescribir | Reemplaza el valor antiguo, sin historial | El pasado no importa | Corrección de errores tipográficos |
+| **SCD 2** | Historial completo | Nueva fila por cada cambio, con fechas de vigencia | Historial completo requerido | Segmento de cliente, precio de producto |
+| **SCD 3** | Valor anterior | Columna adicional con el valor previo | Solo interesa el cambio más reciente | Dirección actual vs. dirección anterior |
+| **SCD 4** | Tabla historial | Tabla separada para el historial | Dimensión muy grande con pocos cambios | Historial de precios |
+| **SCD 6** | Híbrido (1+2+3) | Combina tipos 1, 2 y 3 | Necesitas historial Y conveniencia de acceso actual | Análisis de cohortes complejos |
+
+### SCD Tipo 2 — El más usado (implementación con dbt)
+
+Es el estándar en la mayoría de los Data Warehouses. Cada cambio genera una nueva fila, conservando el historial completo mediante columnas de vigencia.
+
+```sql
+-- dim_cliente con SCD Tipo 2
+-- Una fila por versión del cliente, con fechas de vigencia
+SELECT
+    {{ dbt_utils.generate_surrogate_key(['cliente_id', 'valid_from']) }} AS sk_cliente,
+    cliente_id,
+    nombre,
+    email,
+    segmento,
+    region,
+    valid_from,                            -- fecha desde la que aplica este registro
+    COALESCE(valid_to, '9999-12-31') AS valid_to, -- NULL = registro activo
+    is_current                             -- TRUE = versión vigente
+FROM slv_clientes
+```
+
+**Columnas clave en SCD 2:**
+
+| Columna | Tipo | Descripción |
+|---------|------|-------------|
+| `sk_{dimension}` | VARCHAR | Surrogate key: clave única por versión (no por entidad) |
+| `{dimension}_id` | VARCHAR | Clave de negocio original del sistema fuente |
+| `valid_from` | TIMESTAMP | Fecha de inicio de vigencia de esta versión |
+| `valid_to` | TIMESTAMP | Fecha de fin (NULL o 9999-12-31 = registro activo) |
+| `is_current` | BOOLEAN | TRUE si es la versión vigente en este momento |
+
+**Implementación con dbt snapshots:**
+
+```yaml
+# snapshots/snp_clientes.yml
+snapshots:
+  - name: snp_clientes
+    relation: source('crm', 'clientes')
+    config:
+      strategy: timestamp          # o 'check' para comparar columnas específicas
+      unique_key: cliente_id
+      updated_at: updated_at
+      invalidate_hard_deletes: true
+```
+
+```sql
+-- snapshots/snp_clientes.sql
+{% snapshot snp_clientes %}
+  {{
+    config(
+      target_schema='snapshots',
+      unique_key='cliente_id',
+      strategy='timestamp',
+      updated_at='updated_at',
+    )
+  }}
+  SELECT * FROM {{ source('crm', 'clientes') }}
+{% endsnapshot %}
+```
+
+**Luego la dimensión consume el snapshot:**
+
+```sql
+-- models/gold/dimensions/dim_cliente.sql
+SELECT
+    {{ dbt_utils.generate_surrogate_key(['cliente_id', 'dbt_valid_from']) }} AS sk_cliente,
+    cliente_id,
+    nombre,
+    segmento,
+    region,
+    dbt_valid_from   AS valid_from,
+    dbt_valid_to     AS valid_to,
+    (dbt_valid_to IS NULL) AS is_current
+FROM {{ ref('snp_clientes') }}
+```
+
+### SCD Tipo 1 — Sobreescribir (el más simple)
+
+```sql
+-- models/gold/dimensions/dim_producto.sql
+-- SCD 1: siempre refleja el estado actual, sin historial
+SELECT
+    producto_id,
+    nombre,
+    categoria,      -- si cambia, simplemente se actualiza
+    precio_actual   -- idem
+FROM {{ ref('slv_productos') }}
+```
+
+### Elegir el Tipo Correcto
+
+```
+¿Necesitas historial?
+    ├── NO → SCD 1 (sobreescribir)
+    └── SÍ → ¿Es inmutable el dato?
+              ├── SÍ → SCD 0 (fija)
+              └── NO → ¿Cuántos cambios históricos?
+                        ├── Solo el anterior → SCD 3
+                        ├── Historial completo → SCD 2 ← el más común
+                        └── Dimensión enorme → SCD 4 (tabla historial)
+```
+
+### Recursos SCD
+
+| Recurso | Descripción |
+|---------|-------------|
+| [dbt Snapshots](https://docs.getdbt.com/docs/build/snapshots) | Implementación nativa de SCD 2 con dbt |
+| [dbt_utils.generate_surrogate_key](https://github.com/dbt-labs/dbt-utils#generate_surrogate_key-source) | Macro para generar surrogate keys |
+| [Kimball — The Data Warehouse Toolkit](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimensions/) | Referencia original de SCDs |
+
+---
+
+## 📖 Glosario de Términos y Siglas
+
+> Todos los acrónimos y conceptos técnicos de este stack, con su expansión y referencia oficial.
+
+| Sigla / Término | Expansión | Descripción | Docs |
+|-----------------|-----------|-------------|------|
+| **ACID** | Atomicity, Consistency, Isolation, Durability | Las 4 propiedades que garantizan transacciones confiables. Delta Lake implementa ACID sobre Parquet. | [→](https://docs.delta.io/latest/concurrency-control.html) |
+| **ADF** | Azure Data Factory | Servicio de orquestación e integración de datos de Azure. +90 conectores nativos. | [→](https://learn.microsoft.com/es-es/azure/data-factory/introduction) |
+| **ADLS Gen2** | Azure Data Lake Storage Generation 2 | Almacenamiento jerárquico de Azure optimizado para analítica. Base física de OneLake. | [→](https://learn.microsoft.com/es-es/azure/storage/blobs/data-lake-storage-introduction) |
+| **API** | Application Programming Interface | Interfaz para comunicar sistemas. Se usa para consumir la capa semántica externamente. | [→](https://learn.microsoft.com/es-es/azure/architecture/best-practices/api-design) |
+| **BI** | Business Intelligence | Tecnologías para analizar datos de negocio. Power BI es la herramienta principal de este stack. | [→](https://learn.microsoft.com/es-es/power-bi/fundamentals/power-bi-overview) |
+| **CAP** | Consistency, Availability, Partition Tolerance | Teorema: un sistema distribuido solo garantiza 2 de 3 propiedades. Explica OLTP vs OLAP. | [→](https://www.ibm.com/topics/cap-theorem) |
+| **CDC** | Change Data Capture | Captura solo los cambios (inserciones, actualizaciones, eliminaciones) en el origen. Reduce carga hasta un 90%. | [→](https://learn.microsoft.com/es-es/azure/data-factory/concepts-change-data-capture) |
+| **CI/CD** | Continuous Integration / Continuous Delivery | Automatiza integración y despliegue de código. En dbt: cada PR ejecuta `dbt test` antes de merge. | [→](https://docs.getdbt.com/docs/deploy/continuous-integration) |
+| **DaaF** | Data as a Feature | Los datos son features de ML, preparados con la misma rigurosidad que cualquier feature de software. | [→](https://learn.microsoft.com/es-es/azure/machine-learning/concept-data) |
+| **DaaP** | Data as a Product | Los datasets son tratados como productos: con propietario, docs, tests, SLA y usuarios. | [→](https://martinfowler.com/articles/data-mesh-principles.html) |
+| **DAG** | Directed Acyclic Graph | Grafo de dependencias entre tareas. En Airflow define el orden de ejecución. En dbt es el linaje. | [→](https://airflow.apache.org/docs/apache-airflow/stable/concepts/dags.html) |
+| **dbt** | Data Build Tool | Transforma SQL como código: versionado, testeado, documentado y desplegado con CI/CD. | [→](https://docs.getdbt.com/docs/introduction) |
+| **Delta Lake** | Delta Lake (formato abierto) | Añade ACID, time travel y schema enforcement sobre Parquet. Formato base de OneLake y Fabric. | [→](https://docs.delta.io/latest/index.html) |
+| **DirectLake** | DirectLake (modo Power BI en Fabric) | Power BI consulta directamente Delta en OneLake sin importar ni copiar datos. | [→](https://learn.microsoft.com/es-es/fabric/fundamentals/direct-lake-overview) |
+| **DW** | Data Warehouse | Base de datos OLAP para consultas analíticas. En este stack: Fabric Warehouse para la capa Gold. | [→](https://learn.microsoft.com/es-es/fabric/data-warehouse/data-warehousing) |
+| **ELT** | Extract, Load, Transform | Cargar primero al almacén cloud y transformar después dentro del motor. Opuesto a ETL. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/etl) |
+| **ETL** | Extract, Transform, Load | Patrón tradicional: transformar antes de cargar. Este stack usa ELT en su lugar. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/etl) |
+| **F-SKU** | Fabric Stock Keeping Unit | Unidad de capacidad de cómputo en Microsoft Fabric, medida en CUs. Escalable por demanda real. | [→](https://learn.microsoft.com/es-es/fabric/enterprise/licenses) |
+| **GDPR** | General Data Protection Regulation | Regulación EU sobre datos personales. Aplica si se procesan datos de ciudadanos europeos. | [→](https://gdpr.eu/) |
+| **KPI** | Key Performance Indicator | Métrica cuantificable de rendimiento de negocio. Se define una vez en la capa semántica. | [→](https://docs.getdbt.com/docs/build/metrics-overview) |
+| **Medallion** | Arquitectura Medallion (Bronze/Silver/Gold) | Patrón de tres capas: Bronze (crudo), Silver (limpio), Gold (agregado para consumo). | [→](https://learn.microsoft.com/es-es/azure/databricks/lakehouse/medallion) |
+| **ML** | Machine Learning | Sistemas que aprenden de datos. Azure Machine Learning es la plataforma MLOps del stack. | [→](https://learn.microsoft.com/es-es/azure/machine-learning/overview-what-is-azure-machine-learning) |
+| **MLOps** | Machine Learning Operations | Prácticas DevOps aplicadas al ciclo de vida de modelos ML: entrena, registra, despliega, monitorea. | [→](https://learn.microsoft.com/es-es/azure/machine-learning/concept-model-management-and-deployment) |
+| **MPP** | Massively Parallel Processing | Arquitectura que distribuye consultas entre nodos para procesarlas en paralelo a escala de petabytes. | [→](https://learn.microsoft.com/es-es/azure/synapse-analytics/sql-data-warehouse/massively-parallel-processing-mpp-architecture) |
+| **OLAP** | Online Analytical Processing | Bases de datos para análisis de grandes volúmenes históricos. Fabric Warehouse y Lakehouse son OLAP. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-analytical-processing) |
+| **OLTP** | Online Transaction Processing | Bases de datos operacionales (CRM, ERP). Optimizadas para escrituras rápidas, no para análisis. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-transaction-processing) |
+| **OneLake** | OneLake (Microsoft Fabric) | Único data lake lógico de Fabric. Basado en ADLS Gen2, con formato Delta/Parquet abierto. | [→](https://learn.microsoft.com/es-es/fabric/onelake/onelake-overview) |
+| **OSS** | Open Source Software | Código fuente público. En este stack: dbt Core, Airbyte, Elementary, Airflow. | [→](https://opensource.org/osd) |
+| **Parquet** | Apache Parquet (formato columnar) | Formato columnar optimizado para análisis. Base de Delta Lake. Más rápido y compacto que CSV. | [→](https://parquet.apache.org/docs/) |
+| **PII** | Personally Identifiable Information | Datos que identifican a una persona: nombre, email, CURP. Requiere clasificación y protección especial. | [→](https://learn.microsoft.com/es-es/purview/sensitivity-labels) |
+| **PR** | Pull Request | Mecanismo Git para proponer cambios. En dbt, todo cambio a Gold o métricas requiere PR con revisión. | [→](https://docs.github.com/es/pull-requests) |
+| **RAG** | Retrieval Augmented Generation | IA que combina LLM con búsqueda sobre datos propios para respuestas contextualizadas. | [→](https://learn.microsoft.com/es-es/azure/search/retrieval-augmented-generation-overview) |
+| **RBAC** | Role-Based Access Control | Permisos asignados a roles, no a personas. Simplifica gestión de acceso y aplica mínimo privilegio. | [→](https://learn.microsoft.com/es-es/fabric/security/permission-model) |
+| **REST** | Representational State Transfer | Estilo arquitectónico para APIs web. La capa semántica se expone vía API REST. | [→](https://learn.microsoft.com/es-es/azure/architecture/best-practices/api-design) |
+| **SCD** | Slowly Changing Dimension | Patrón para manejar cambios históricos en dimensiones (clientes, productos). Ver sección SCD. | [→](https://docs.getdbt.com/docs/build/snapshots) |
+| **Schema-on-Read** | Schema-on-Read (Esquema en Lectura) | Datos almacenados sin estructura impuesta; el esquema se aplica al leerlos. Usado en RAW/Bronze. | [→](https://docs.delta.io/latest/schema-validation.html) |
+| **SLA** | Service Level Agreement | Compromiso de disponibilidad, frescura o calidad de un dato. Se monitorea con Elementary y Azure Monitor. | [→](https://learn.microsoft.com/es-es/azure/azure-monitor/alerts/alerts-overview) |
+| **SOC 2** | Service Organization Control 2 | Estándar de auditoría de seguridad cloud. Fabric y Azure tienen certificación SOC 2 Tipo II. | [→](https://learn.microsoft.com/es-es/azure/compliance/offerings/offering-soc-2) |
+| **SQL** | Structured Query Language | Lenguaje estándar para bases de datos relacionales. dbt usa SQL para todos los modelos. | [→](https://docs.getdbt.com/docs/core/connect-data-platform/about-core-connections) |
+| **Zero-copy** | Zero-copy (clonación sin duplicar datos) | Shortcut/referencia a datos en lugar de duplicarlos. OneLake usa zero-copy entre servicios. | [→](https://learn.microsoft.com/es-es/fabric/onelake/onelake-shortcuts) |
+
+---
+
+## 📚 Recursos de Aprendizaje Recomendados
+
+### Fundamentos del Stack
+
+| Recurso | Tipo | Descripción |
+|---------|------|-------------|
+| [The Data Warehouse Toolkit — Kimball](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/) | 📘 Libro | La referencia canónica de modelado dimensional: hechos, dimensiones y SCDs |
+| [Data Mesh Principles — Martin Fowler](https://martinfowler.com/articles/data-mesh-principles.html) | 📄 Artículo | Principios fundacionales de DaaP y Data Mesh |
+| [Fundamentals of Data Engineering — O'Reilly](https://www.oreilly.com/library/view/fundamentals-of-data/9781098108298/) | 📘 Libro | Referencia completa del ciclo de vida de ingeniería de datos |
+| [The Analytics Engineering Guide — dbt Labs](https://www.getdbt.com/analytics-engineering/) | 📄 Guía | Qué es Analytics Engineering y cómo dbt lo implementa |
+
+### dbt
+
+| Recurso | Descripción |
+|---------|-------------|
+| [dbt Learn (cursos oficiales)](https://learn.getdbt.com/) | Cursos gratuitos de dbt Labs: fundamentos, Jinja, tests, Mesh |
+| [dbt Best Practices](https://docs.getdbt.com/best-practices) | Guías oficiales: estructura de proyectos, Medallion, naming |
+| [dbt Discourse (comunidad)](https://discourse.getdbt.com/) | Foro de la comunidad dbt: preguntas, patrones y casos de uso |
+| [dbt Slack](https://www.getdbt.com/community/join-the-community/) | Comunidad activa en Slack: +50.000 miembros |
+| [dbt Snapshots (SCD 2)](https://docs.getdbt.com/docs/build/snapshots) | Implementación oficial de SCD 2 con dbt |
+| [dbt MetricFlow](https://docs.getdbt.com/docs/build/about-metricflow) | Motor de métricas semánticas en dbt |
+
+### Microsoft Fabric
+
+| Recurso | Descripción |
+|---------|-------------|
+| [Microsoft Fabric Learn](https://learn.microsoft.com/es-es/training/browse/?products=fabric) | Módulos de aprendizaje oficial gratuitos de Fabric |
+| [Fabric Community](https://community.fabric.microsoft.com/) | Foro oficial de la comunidad de Microsoft Fabric |
+| [Fabric Updates Blog](https://blog.fabric.microsoft.com/) | Blog oficial con novedades y actualizaciones del producto |
+| [Fabric Notes (Guy in a Cube)](https://www.youtube.com/@GuyInACube) | Canal de YouTube con tutoriales prácticos de Fabric y Power BI |
+| [Lakehouse vs Warehouse en Fabric](https://learn.microsoft.com/es-es/fabric/data-engineering/lakehouse-vs-data-warehouse) | Cuándo usar Lakehouse y cuándo usar Warehouse |
+| [Fabric Capacity Planning](https://learn.microsoft.com/es-es/fabric/enterprise/plan-capacity) | Guía para estimar y planificar F-SKUs por carga de trabajo |
+
+### Azure & DevOps
+
+| Recurso | Descripción |
+|---------|-------------|
+| [Azure Data Architecture Guide](https://learn.microsoft.com/es-es/azure/architecture/data-guide/) | Patrones de arquitectura de datos en Azure (ELT, Lambda, Kappa) |
+| [Azure Well-Architected Framework](https://learn.microsoft.com/es-es/azure/well-architected/) | Pilares de excelencia: fiabilidad, seguridad, eficiencia, costos |
+| [GitHub Actions para dbt CI/CD](https://docs.getdbt.com/docs/deploy/continuous-integration) | Cómo configurar CI/CD de dbt con GitHub Actions |
+| [Fabric Git Integration](https://learn.microsoft.com/es-es/fabric/cicd/git-integration/intro-to-git-integration) | Control de versiones Git nativo en Microsoft Fabric |
+
+### Modelado Dimensional & SCDs
+
+| Recurso | Descripción |
+|---------|-------------|
+| [Kimball Group — SCD Techniques](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimensions/) | Referencia original de todos los tipos de SCD |
+| [dbt Snapshots Guide](https://docs.getdbt.com/docs/build/snapshots) | SCD 2 nativo con dbt: strategies timestamp y check |
+| [dbt_utils — surrogate_key](https://github.com/dbt-labs/dbt-utils#generate_surrogate_key-source) | Macro para generar surrogate keys consistentes en dimensiones |
+| [Star Schema vs Data Vault](https://www.databricks.com/glossary/data-vault) | Cuándo usar estrella vs Data Vault para el Gold layer |
+
+### Gobernanza & Calidad de Datos
+
+| Recurso | Descripción |
+|---------|-------------|
+| [Microsoft Purview Docs](https://learn.microsoft.com/es-es/purview/) | Documentación completa de catálogo, linaje y clasificación |
+| [DAMA-DMBOK (Data Management)](https://www.dama.org/cpages/body-of-knowledge) | Cuerpo de conocimiento estándar de gestión de datos |
+| [Great Expectations Docs](https://docs.greatexpectations.io/) | Framework OSS para validación de calidad de datos |
+| [Monte Carlo — Data Observability](https://www.montecarlodata.com/blog-what-is-data-observability/) | Qué es la observabilidad de datos y sus 5 pilares |
 
 ---
 
@@ -768,7 +902,8 @@ src/
 ├── data/
 │   ├── blockData.js      ← contenido de capas + dbt + Fabric
 │   ├── partsConfig.js    ← partes + roadmap con hitos y entregables
-│   └── objectives.js     ← principios DaaP
+│   ├── objectives.js     ← principios DaaP
+│   └── glossary.js       ← glosario de términos y siglas
 ├── components/
 │   ├── Header.jsx
 │   ├── NavParts.jsx
@@ -777,9 +912,10 @@ src/
 │   ├── ProtagonistDetail.jsx  ← páginas dbt y Fabric
 │   ├── ProgressCard.jsx
 │   ├── RoadmapView.jsx        ← roadmap visual con entregables
+│   ├── GlossaryView.jsx       ← glosario con búsqueda
 │   ├── ToolsGrid.jsx
 │   └── Tooltip.jsx
-└── App.jsx                    ← tabs: Stack · dbt · Fabric · Roadmap
+└── App.jsx                    ← tabs: Stack · dbt · Fabric · Roadmap · Glosario
 ```
 
 ### Cómo editar contenido
@@ -792,6 +928,7 @@ src/
 | Hitos del roadmap | `src/data/partsConfig.js` → `ROADMAP` |
 | Entregables por fase | `src/components/RoadmapView.jsx` → `PARTS_INFO` |
 | Principios DaaP | `src/data/objectives.js` |
+| Términos del glosario | `src/data/glossary.js` |
 
 ---
 

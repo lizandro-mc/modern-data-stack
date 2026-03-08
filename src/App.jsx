@@ -10,19 +10,21 @@ import ProgressCard from './components/ProgressCard'
 import ToolsGrid from './components/ToolsGrid'
 import ProtagonistDetail from './components/ProtagonistDetail'
 import RoadmapView from './components/RoadmapView'
+import GlossaryView from './components/GlossaryView'
 
 const TOP_TABS = [
-  { id: 'stack',       label: '🏗️ Stack' },
-  { id: 'dbt',         label: '🟡 dbt' },
-  { id: 'fabric',      label: '🟣 Fabric' },
-  { id: 'roadmap',     label: '📅 Roadmap' },
+  { id: 'stack',    label: '🏗️ Stack' },
+  { id: 'dbt',      label: '🟡 dbt' },
+  { id: 'fabric',   label: '🟣 Fabric' },
+  { id: 'roadmap',  label: '📅 Roadmap' },
+  { id: 'glossary', label: '📖 Glosario' },
 ]
 
 export default function App() {
-  const [topTab, setTopTab]         = useState('stack')
-  const [activePart, setActivePart] = useState('overview')
+  const [topTab, setTopTab]           = useState('stack')
+  const [activePart, setActivePart]   = useState('overview')
   const [activeBlock, setActiveBlock] = useState(null)
-  const [objOpen, setObjOpen]       = useState(false)
+  const [objOpen, setObjOpen]         = useState(false)
 
   const part = partsConfig.find(p => p.id === activePart)
 
@@ -30,7 +32,10 @@ export default function App() {
     if (blockData[name]) setActiveBlock(name)
   }
 
-  const handleBack = () => setActiveBlock(null)
+  const handleTabChange = (id) => {
+    setTopTab(id)
+    setActiveBlock(null)
+  }
 
   return (
     <div style={{ background: '#e2e8f0', minHeight: '100vh', padding: '28px 16px' }}>
@@ -38,17 +43,19 @@ export default function App() {
 
         <Header objOpen={objOpen} setObjOpen={setObjOpen} objectives={objectives} />
 
-        {/* Tabs principales */}
+        {/* ── Tabs principales ── */}
         {!activeBlock && (
           <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
             {TOP_TABS.map(t => (
-              <button key={t.id} onClick={() => { setTopTab(t.id); setActiveBlock(null) }}
+              <button key={t.id} onClick={() => handleTabChange(t.id)}
                 style={{
                   padding: '8px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
                   fontSize: 13, fontWeight: 700,
                   background: topTab === t.id ? '#1e3a5f' : '#fff',
                   color: topTab === t.id ? '#fff' : '#374151',
-                  boxShadow: topTab === t.id ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 3px rgba(0,0,0,0.08)',
+                  boxShadow: topTab === t.id
+                    ? '0 2px 10px rgba(0,0,0,0.18)'
+                    : '0 1px 3px rgba(0,0,0,0.08)',
                   transition: 'all 0.2s',
                 }}
               >{t.label}</button>
@@ -60,7 +67,7 @@ export default function App() {
         {topTab === 'stack' && (
           activeBlock ? (
             <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
-              <BlockDetail name={activeBlock} onBack={handleBack} />
+              <BlockDetail name={activeBlock} onBack={() => setActiveBlock(null)} />
             </div>
           ) : (
             <>
@@ -79,14 +86,14 @@ export default function App() {
         {/* ── TAB: DBT ── */}
         {topTab === 'dbt' && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
-            <ProtagonistDetail name="DBT" onBack={() => setTopTab('stack')} />
+            <ProtagonistDetail name="DBT" onBack={() => handleTabChange('stack')} />
           </div>
         )}
 
         {/* ── TAB: FABRIC ── */}
         {topTab === 'fabric' && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
-            <ProtagonistDetail name="FABRIC" onBack={() => setTopTab('stack')} />
+            <ProtagonistDetail name="FABRIC" onBack={() => handleTabChange('stack')} />
           </div>
         )}
 
@@ -94,6 +101,13 @@ export default function App() {
         {topTab === 'roadmap' && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
             <RoadmapView />
+          </div>
+        )}
+
+        {/* ── TAB: GLOSARIO ── */}
+        {topTab === 'glossary' && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
+            <GlossaryView />
           </div>
         )}
 
