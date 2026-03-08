@@ -1,0 +1,58 @@
+export const partsConfig = [
+  {
+    id: 'overview',
+    label: 'Vista General',
+    color: '#1a1a2e',
+    pct: 100,
+    dias: null,
+    activeBlocks: ['EXTRAER','CARGAR','TRANSFORMAR','SEMÁNTICA','APROVECHAR','ALMACENAR','GOBERNAR','OBSERVABILIDAD','ORQUESTADOR'],
+    desc: 'Stack completo con todas las capas activas. Vista de referencia final de la arquitectura DaaP sobre Azure.',
+  },
+  {
+    id: 'part1',
+    label: 'Parte 1 · Fundación',
+    color: '#1d4ed8',
+    pct: 20,
+    dias: '30–45',
+    activeBlocks: ['EXTRAER','CARGAR','ALMACENAR','GOBERNAR'],
+    desc: 'Base del stack: ingesta, carga, almacenamiento y gobernanza. Sin esta fundación ninguna capa superior es sostenible.',
+  },
+  {
+    id: 'part2',
+    label: 'Parte 2 · Transformar',
+    color: '#0f3460',
+    pct: 40,
+    dias: '45–60',
+    activeBlocks: ['EXTRAER','CARGAR','TRANSFORMAR','ALMACENAR','GOBERNAR','OBSERVABILIDAD'],
+    desc: 'Activación del patrón ELT con dbt. El dato pasa de crudo a limpio y enriquecido. Se añade observabilidad proactiva.',
+  },
+  {
+    id: 'part3',
+    label: 'Parte 3 · Semántica',
+    color: '#533483',
+    pct: 60,
+    dias: '30–45',
+    activeBlocks: ['EXTRAER','CARGAR','TRANSFORMAR','SEMÁNTICA','ALMACENAR','GOBERNAR','OBSERVABILIDAD'],
+    desc: 'Capa semántica centralizada. Una sola definición de métricas y KPIs para toda la organización.',
+  },
+  {
+    id: 'part4',
+    label: 'Parte 4 · Aprovechar',
+    color: '#2d6a4f',
+    pct: 80,
+    dias: '30–45',
+    activeBlocks: ['EXTRAER','CARGAR','TRANSFORMAR','SEMÁNTICA','APROVECHAR','ALMACENAR','GOBERNAR','OBSERVABILIDAD'],
+    desc: 'El dato genera valor de negocio real: BI, ML, IA Generativa y Feature Engineering.',
+  },
+  {
+    id: 'part5',
+    label: 'Parte 5 · Orquestador',
+    color: '#1b4332',
+    pct: 100,
+    dias: '20–30',
+    activeBlocks: ['EXTRAER','CARGAR','TRANSFORMAR','SEMÁNTICA','APROVECHAR','ALMACENAR','GOBERNAR','OBSERVABILIDAD','ORQUESTADOR'],
+    desc: 'El orquestador conecta todo. Automatización E2E, gestión de dependencias y monitoreo de SLAs.',
+  },
+]
+
+export const TOTAL_DIAS = '155–225'
