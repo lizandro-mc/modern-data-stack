@@ -1,7 +1,17 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { colors } from '../data/blockData'
 
-function Block({ name, colKey, style, sub, activeBlocks, onBlockClick }) {
+function useIsMobile(breakpoint = 600) {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < breakpoint)
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < breakpoint)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [breakpoint])
+  return isMobile
+}
+
+function Block({ name, colKey, style, sub, activeBlocks, onBlockClick, fullWidth }) {
   const active = activeBlocks.includes(name)
   const c = active ? colors[colKey] : colors.dim
   const [hover, setHover] = useState(false)
@@ -20,11 +30,13 @@ function Block({ name, colKey, style, sub, activeBlocks, onBlockClick }) {
         transition: 'all 0.18s',
         boxShadow: active && hover ? `0 4px 16px ${c.border}55` : 'none',
         opacity: active ? 1 : 0.28,
+        width: fullWidth ? '100%' : undefined,
+        boxSizing: 'border-box',
         ...style,
       }}
     >
       <div style={{
-        fontSize: 'clamp(9px, 1.2vw, 11px)',
+        fontSize: 'clamp(10px, 1.4vw, 12px)',
         fontWeight: 700,
         color: active && hover ? '#fff' : c.text,
       }}>
@@ -32,7 +44,7 @@ function Block({ name, colKey, style, sub, activeBlocks, onBlockClick }) {
       </div>
       {sub && (
         <div style={{
-          fontSize: 'clamp(8px, 1vw, 10px)',
+          fontSize: 'clamp(9px, 1vw, 10px)',
           color: active && hover ? '#ffffffcc' : '#6b7280',
           marginTop: 3,
           lineHeight: 1.3,
@@ -63,12 +75,14 @@ function WideBlock({ name, colKey, sub, style, activeBlocks, onBlockClick }) {
         transition: 'all 0.18s',
         boxShadow: active && hover ? `0 4px 16px ${c.border}55` : 'none',
         opacity: active ? 1 : 0.28,
+        width: '100%',
+        boxSizing: 'border-box',
         ...style,
       }}
     >
       <div style={{
         fontWeight: 800,
-        fontSize: 'clamp(12px, 2vw, 16px)',
+        fontSize: 'clamp(13px, 2vw, 16px)',
         color: active && hover ? '#fff' : '#1f2937',
       }}>
         {name}
@@ -86,8 +100,38 @@ function WideBlock({ name, colKey, sub, style, activeBlocks, onBlockClick }) {
 }
 
 export default function DiagramPart({ activeBlocks, onBlockClick }) {
+  const isMobile = useIsMobile()
   const bp = { activeBlocks, onBlockClick }
 
+  /* ── MOBILE: pila vertical simple ── */
+  if (isMobile) {
+    const layers = [
+      { name: 'ORQUESTADOR',   colKey: 'v7', sub: 'ADF · Airflow · dbt Jobs · Logic Apps' },
+      { name: 'EXTRAER',       colKey: 'v1', sub: 'Vol 1 · ADF · Event Hubs' },
+      { name: 'CARGAR',        colKey: 'v2', sub: 'Vol 2 · ADF' },
+      { name: 'TRANSFORMAR',   colKey: 'v3', sub: 'Vol 3 · dbt' },
+      { name: 'SEMÁNTICA',     colKey: 'v4', sub: 'Vol 4 · Fabric' },
+      { name: 'ALMACENAR',     colKey: 'f1', sub: 'ADLS Gen2 · Fabric Lakehouse · Delta Lake · Synapse DW' },
+      { name: 'APROVECHAR',    colKey: 'v5', sub: 'Vol 5 · Power BI · ML' },
+      { name: 'GOBERNAR',      colKey: 'f2', sub: 'Purview · Azure Policy · Data Contracts · dbt Tests' },
+      { name: 'OBSERVABILIDAD',colKey: 'f3', sub: 'Elementary · Azure Monitor · dbt Artifacts · Linaje' },
+    ]
+
+    return (
+      <div style={{ padding: 4 }}>
+        <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10, textAlign: 'center' }}>
+          💡 Toca un bloque activo para ver detalles
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {layers.map(l => (
+            <WideBlock key={l.name} name={l.name} colKey={l.colKey} sub={l.sub} {...bp} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  /* ── DESKTOP: layout original sin bloques Fund./Vol ── */
   return (
     <div style={{ padding: 4 }}>
       <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 10, textAlign: 'center' }}>
@@ -95,16 +139,11 @@ export default function DiagramPart({ activeBlocks, onBlockClick }) {
       </div>
 
       {/* Orquestador */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-        <Block
-          name="Vol 7" colKey="v7"
-          style={{ minWidth: 62, flexShrink: 0 }}
-          sub="Orch." {...bp}
-        />
+      <div style={{ marginBottom: 8 }}>
         <WideBlock
           name="ORQUESTADOR" colKey="v7"
           sub="ADF · Airflow · dbt Jobs · Logic Apps"
-          style={{ flex: 1 }} {...bp}
+          {...bp}
         />
       </div>
 
@@ -113,7 +152,7 @@ export default function DiagramPart({ activeBlocks, onBlockClick }) {
         {/* Extraer */}
         <Block
           name="EXTRAER" colKey="v1"
-          style={{ minWidth: 70, flexShrink: 0 }}
+          style={{ minWidth: 80, flexShrink: 0 }}
           sub="Vol 1 · ADF · Event Hubs" {...bp}
         />
 
@@ -124,32 +163,28 @@ export default function DiagramPart({ activeBlocks, onBlockClick }) {
             <Block name="TRANSFORMAR" colKey="v3" style={{ flex: 1, minWidth: 0 }} sub="Vol 3 · dbt" {...bp} />
             <Block name="SEMÁNTICA"   colKey="v4" style={{ flex: 1, minWidth: 0 }} sub="Vol 4 · Fabric" {...bp} />
           </div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <Block name="Fund.1" colKey="f1" style={{ minWidth: 62, flexShrink: 0 }} {...bp} />
-            <WideBlock
-              name="ALMACENAR" colKey="f1"
-              sub="ADLS Gen2 · Fabric Lakehouse · Delta Lake · Synapse DW"
-              style={{ flex: 1 }} {...bp}
-            />
-          </div>
+          <WideBlock
+            name="ALMACENAR" colKey="f1"
+            sub="ADLS Gen2 · Fabric Lakehouse · Delta Lake · Synapse DW"
+            {...bp}
+          />
         </div>
 
         {/* Aprovechar */}
         <Block
           name="APROVECHAR" colKey="v5"
-          style={{ minWidth: 70, flexShrink: 0 }}
+          style={{ minWidth: 80, flexShrink: 0 }}
           sub="Vol 5 · Power BI · ML" {...bp}
         />
       </div>
 
       {/* Fundaciones */}
       {[
-        { name: 'GOBERNAR',       col: 'f2', flabel: 'Fund.2', sub: 'Purview · Azure Policy · Data Contracts · dbt Tests' },
-        { name: 'OBSERVABILIDAD', col: 'f3', flabel: 'Fund.3', sub: 'Elementary · Azure Monitor · dbt Artifacts · Linaje' },
+        { name: 'GOBERNAR',        col: 'f2', sub: 'Purview · Azure Policy · Data Contracts · dbt Tests' },
+        { name: 'OBSERVABILIDAD',  col: 'f3', sub: 'Elementary · Azure Monitor · dbt Artifacts · Linaje' },
       ].map(r => (
-        <div key={r.name} style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-          <Block name={r.flabel} colKey={r.col} style={{ minWidth: 62, flexShrink: 0 }} {...bp} />
-          <WideBlock name={r.name} colKey={r.col} sub={r.sub} style={{ flex: 1 }} {...bp} />
+        <div key={r.name} style={{ marginBottom: 8 }}>
+          <WideBlock name={r.name} colKey={r.col} sub={r.sub} {...bp} />
         </div>
       ))}
     </div>
