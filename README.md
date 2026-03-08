@@ -1,6 +1,7 @@
-# 🏗️ Modern Data Stack · Azure DaaP
+# 🏗️ Modern Data Stack · Azure DaaP · Banca
 
 > Arquitectura **Data as a Product** sobre Azure — implementación progresiva en 5 partes.  
+> Optimizada para **analítica bancaria**: riesgo, cumplimiento, fraude, tesorería y canales digitales.  
 > Los protagonistas: **dbt** y **Microsoft Fabric**.
 
 🔗 **Demo:** [lizandro-mc.github.io/modern-data-stack](https://lizandro-mc.github.io/modern-data-stack)  
@@ -12,18 +13,20 @@
 
 - [Principios DaaP](#-principios-daap)
 - [Vista General del Stack](#-vista-general-del-stack)
+- [🏦 Caso de Uso Bancario](#-caso-de-uso-bancario)
+- [🚚 Migración On-Premise → Azure](#-migración-on-premise--azure)
 - [🟡 dbt — El Protagonista de la Transformación](#-dbt--el-protagonista-de-la-transformación)
 - [🟣 Microsoft Fabric — La Plataforma Unificada](#-microsoft-fabric--la-plataforma-unificada)
-- [Roadmap de Implementación](#-roadmap-de-implementación)
+- [📅 Roadmap de Implementación](#-roadmap-de-implementación)
 - [Parte 1 · Fundación](#-parte-1--fundación--20)
 - [Parte 2 · Transformar](#-parte-2--transformar--40)
 - [Parte 3 · Semántica](#-parte-3--semántica--60)
 - [Parte 4 · Aprovechar](#-parte-4--aprovechar--80)
 - [Parte 5 · Orquestador](#-parte-5--orquestador--100)
 - [Detalle por Capa](#-detalle-por-capa)
-- [SCD — Dimensiones que Cambian Lentamente](#-scd--dimensiones-que-cambian-lentamente)
-- [Glosario de Términos y Siglas](#-glosario-de-términos-y-siglas)
-- [Recursos de Aprendizaje Recomendados](#-recursos-de-aprendizaje-recomendados)
+- [🔄 SCD — Dimensiones que Cambian Lentamente](#-scd--dimensiones-que-cambian-lentamente)
+- [📖 Glosario](#-glosario-de-términos-y-siglas)
+- [📚 Recursos de Aprendizaje](#-recursos-de-aprendizaje-recomendados)
 - [Instalación](#-instalación)
 
 ---
@@ -34,7 +37,7 @@
 |--|-----------|-------------|
 | ⚡ | ELT sobre ETL | Transformar dentro del almacén, no antes de cargar |
 | ☁️ | Cloud primero | Stack completo sobre Azure |
-| 🔀 | Separación cómputo/almacenamiento | Fabric Lakehouse + Synapse |
+| 🔀 | Separación cómputo/almacenamiento | Fabric Lakehouse + Warehouse |
 | 🧠 | Dato como Feature | Ingeniería de características + Azure ML |
 | 💻 | Dato como Software | dbt + Git + CI/CD |
 | 🔭 | Confiabilidad Proactiva | Observabilidad, Linaje y Contratos de Datos |
@@ -62,13 +65,239 @@
 
 ---
 
+## 🏦 Caso de Uso Bancario
+
+> Un banco genera datos en decenas de sistemas: core bancario, tarjetas, créditos, canales digitales, tesorería. Este stack unifica esos silos en una plataforma analítica gobernada, regulatoria y en tiempo real.
+
+### Dominios de Negocio Bancario
+
+Cada dominio es un **Data Product** independiente con su propietario, SLA, contratos y workspace en Fabric:
+
+| Dominio | Sistemas Fuente Típicos | Casos de Uso Analítico | Regulatorio |
+|---------|------------------------|----------------------|-------------|
+| **Riesgo de Crédito** | Core bancario, scoring externo, bureau | PD/LGD/EAD, IFRS 9, provisiones, cobranza | Basilea III/IV, IFRS 9 |
+| **Riesgo de Mercado** | Bloomberg, Reuters, sistemas de trading | VaR, stress testing, sensibilidades | Basilea IV, FRTB |
+| **Riesgo Operacional** | Registro de eventos, pólizas de seguro | Pérdidas operacionales, modelado AMA | Basilea III |
+| **Cumplimiento / AML** | Monitoreo transaccional, listas negras | Detección lavado, KYC, FATCA, reporte regulatorio | AML, FATCA, CRS |
+| **Fraude** | Transacciones, comportamiento digital | Detección en tiempo real, análisis de patrones | PCI DSS |
+| **Tesorería** | Sistemas ALM, Bloomberg | Posición de liquidez, gap de tasas, FTP | LCR, NSFR (Basilea III) |
+| **Banca Minorista** | CRM, canales digitales, call center | Rentabilidad por cliente, NPS, churn, cohortes | — |
+| **Banca Corporativa** | CRM corporativo, límites de crédito | Wallet share, exposición por sector | — |
+| **Tarjetas** | Procesadores (Visa/MC), fraude | Activación, transaccionalidad, rewards | PCI DSS |
+| **Préstamos / Créditos** | LOS (Loan Origination System) | Originación, morosidad, prepago | IFRS 9 |
+| **Canales Digitales** | App móvil, web, ATMs | Adopción digital, funnel, sesiones | — |
+| **Regulatorio** | Todos los dominios | CNBV, Banxico, IFRS, Basilea | Todos |
+
+### Arquitectura Fabric para Banca — Estructura de Workspaces
+
+En un banco, la estructura de workspaces NO solo separa por ambiente (dev/stage/prod), sino también por **zona de seguridad** según la clasificación de datos:
+
+```
+── ZONA PCI (datos de tarjeta — máximo aislamiento) ──────────────────────
+banco-pci-dev / banco-pci-stage / banco-pci-prod
+├── lh_raw_tarjetas         F-SKU dedicado · Private Endpoint obligatorio
+├── lh_bronze_tarjetas      acceso: solo equipo_tarjetas + auditores
+├── lh_silver_tarjetas      datos enmascarados para dev/stage
+└── wh_gold_tarjetas        RLS por número de tarjeta nunca expuesto
+
+── ZONA REGULATORIA (CNBV, Banxico, IFRS) ────────────────────────────────
+banco-reg-dev / banco-reg-stage / banco-reg-prod
+├── lh_raw_reg              fuentes regulatorias: catálogos CNBV, tasas Banxico
+├── wh_gold_riesgo_credito  IFRS 9: PD, LGD, EAD, provisiones
+├── wh_gold_aml             reportes R01, R02 Banxico, GAFI
+└── sm_regulatorio          semantic model: métricas regulatorias
+
+── ZONA ANALÍTICA (dominios de negocio) ──────────────────────────────────
+banco-analytics-dev / banco-analytics-stage / banco-analytics-prod
+├── lh_raw_{sistema}        un lakehouse por sistema fuente
+├── lh_bronze_{sistema}
+├── lh_silver               datos limpios cross-dominio
+├── wh_gold_retail          rentabilidad, cohortes, churn
+├── wh_gold_corporativo     wallet share, exposición
+├── wh_gold_canales         digital, ATMs, call center
+└── sm_{dominio}            un semantic model por dominio
+
+── ZONA DE DATOS SINTÉTICOS (dev/testing) ───────────────────────────────
+banco-synthetic-dev
+└── datos generados sintéticamente que replican estructura prod sin PII
+    → nunca usar datos reales de clientes en dev
+```
+
+### Nomenclatura Bancaria — Extendida
+
+```
+── Sistemas fuente bancarios comunes ─────────────────────────────
+lh_raw_core          ← core bancario (Temenos, Fiserv, Mambu, etc.)
+lh_raw_tarjetas      ← procesador de tarjetas
+lh_raw_los           ← loan origination system
+lh_raw_crm           ← CRM (Salesforce, Dynamics)
+lh_raw_alm           ← sistema ALM / tesorería
+lh_raw_mdt           ← monitoreo de transacciones (AML)
+lh_raw_bloomberg     ← feeds de mercado
+lh_raw_bureau        ← buró de crédito (Círculo de Crédito, Buró)
+lh_raw_digital       ← app móvil / web analytics
+lh_raw_cnbv          ← catálogos y clasificadores regulatorios
+
+── Modelos dbt por dominio regulatorio ──────────────────────────
+brz_core__{entidad}       brz_los__solicitudes     brz_mdt__alertas
+slv_cuentas               slv_creditos             slv_transacciones
+fct_originacion           fct_pagos                fct_alertas_aml
+dim_cliente_bancario      dim_producto_financiero  dim_regulatorio
+
+── Schemas Gold por dominio ─────────────────────────────────────
+gold_riesgo_credito       gold_aml                 gold_retail
+gold_tesoreria            gold_tarjetas            gold_regulatorio
+
+── Tags dbt bancarios ───────────────────────────────────────────
+pii · pci · ifrs9 · aml · basilea · cnbv · daily · intraday · critical
+```
+
+### Cumplimiento Regulatorio — Qué Necesita el Stack
+
+| Regulación | Qué impacta en el stack | Cómo lo resuelve el stack |
+|-----------|------------------------|--------------------------|
+| **IFRS 9** | Cálculo de PD, LGD, EAD, ECL; staging de créditos | Modelos dbt en `gold_riesgo_credito`; Azure ML para modelos estadísticos |
+| **Basilea III/IV** | Capital mínimo, LCR, NSFR; reporte de riesgo de mercado (FRTB) | Semantic model `sm_regulatorio`; dbt con fuentes de tesorería y riesgo |
+| **AML / FATF** | Detección de transacciones sospechosas; reporte a UIF | Pipeline AML en tiempo real con Event Hubs; modelos ML sobre OneLake |
+| **KYC / FATCA / CRS** | Identificación de clientes, residencia fiscal, reporte a SAT/IRS | `slv_cliente_kyc` con clasificaciones Purview; lineage trazable a auditores |
+| **PCI DSS** | Protección de datos de tarjeta (PAN, CVV); no almacenar CVV | Workspace PCI aislado; tokenización antes de llegar a Raw; RLS en Gold |
+| **CNBV / Banxico** | R01-R11, reportes financieros, catálogos CNBV | Dominio `gold_regulatorio`; validaciones dbt antes de envío |
+| **Privacidad (LFPDPPP)** | Protección de datos personales de clientes mexicanos | Sensitivity labels Purview; enmascaramiento en Silver para dev/stage |
+
+### Fraude en Tiempo Real — Patrón
+
+```
+Transacción en POS / Digital
+         ↓
+  [Azure Event Hubs]           ← ingesta streaming (Kafka-compatible)
+         ↓
+  [Azure Stream Analytics]     ← reglas simples en tiempo real (<100ms)
+         ↓                            ↓
+  [Azure ML endpoint]          [OneLake — lh_raw_fraude]
+  (modelo ML scoring)                 ↓
+         ↓                    [dbt batch — análisis de patrones]
+  Decisión: ✅ / ❌ / 🔍              ↓
+  (aprobar/rechazar/revisar)   [wh_gold_fraude]
+                                       ↓
+                               [Power BI — dashboard operativo fraude]
+```
+
+---
+
+## 🚚 Migración On-Premise → Azure
+
+> Los bancos suelen operar con infraestructura on-premise (mainframes, Oracle DW, SQL Server on-prem) durante décadas. La migración a Azure es incremental, nunca big-bang.
+
+### Estrategia de Migración — 4 Fases
+
+```
+Fase 1: HÍBRIDO SHADOW (0-6 meses)
+  On-prem sigue siendo el sistema de registro.
+  Azure replica y consume datos en paralelo.
+  KPI: sin impacto en producción on-prem.
+
+Fase 2: HÍBRIDO ACTIVO (6-18 meses)
+  Reportes analíticos y regulatorios migran a Azure.
+  On-prem sigue siendo fuente de transacciones.
+  KPI: 100% reportes regulatorios desde Azure.
+
+Fase 3: CLOUD PRIMARIO (18-36 meses)
+  Azure es fuente de verdad analítica.
+  On-prem en modo lectura / mantenimiento.
+  KPI: latencia ≤ on-prem, cobertura 100% dominios.
+
+Fase 4: CLOUD ONLY (36+ meses)
+  Decommission progresivo de on-prem DW.
+  Core bancario puede seguir on-prem (es normal).
+  KPI: coste total ≤ coste on-prem mantenido.
+```
+
+### Conectividad Segura — Arquitectura de Red
+
+```
+Banco On-Premise                    Azure
+─────────────────────────────────────────────────────────
+Core Bancario (Mainframe/AS400)
+        │
+        │ CDC (Attunity / Debezium        Azure ExpressRoute
+        │      / Qlik Replicate)   ──────────────────────►  Azure Private Link
+        │                                                         │
+SQL Server DW on-prem              ──── Azure VPN Gateway ──────►  ADF Self-Hosted IR
+        │                                                         │
+Oracle/Teradata DW on-prem         ──────────────────────────────►  Fabric Private Endpoint
+        │                                                         │
+Archivos planos (COBOL, fixed-width)─────────────────────────────►  lh_raw_{sistema}
+                                                                  │
+                                                             [OneLake / Fabric]
+```
+
+**Reglas de red obligatorias para banca:**
+- **Nunca exponer Fabric a internet público** — Private Endpoints en todos los workspaces
+- **Azure ExpressRoute** en lugar de VPN para entornos productivos (latencia y SLA garantizados)
+- **Self-Hosted Integration Runtime (SHIR)** de ADF dentro de la red del banco para conectar on-prem
+- **Azure Key Vault** para todos los secrets, credenciales y connection strings — nunca en código
+- **Managed Private Endpoints** en Fabric para conectar con recursos Azure sin salir a internet
+- **Microsoft Sentinel** para SIEM y monitoreo de seguridad de toda la plataforma Azure
+
+### Reconciliación — La Clave de la Confianza
+
+Antes de apagar cualquier sistema on-prem, debes demostrar que Azure produce los mismos resultados:
+
+```sql
+-- Modelo dbt de reconciliación: on-prem vs Azure
+-- models/gold/reconciliacion/rpt_recon_saldos.sql
+
+WITH onprem AS (
+    SELECT fecha, SUM(saldo) AS saldo_onprem
+    FROM {{ source('onprem_dw', 'saldos_cuentas') }}
+    GROUP BY fecha
+),
+azure AS (
+    SELECT fecha, SUM(saldo) AS saldo_azure
+    FROM {{ ref('fct_saldos_cuentas') }}
+    GROUP BY fecha
+)
+SELECT
+    o.fecha,
+    o.saldo_onprem,
+    a.saldo_azure,
+    a.saldo_azure - o.saldo_onprem        AS diferencia,
+    ABS((a.saldo_azure - o.saldo_onprem)
+        / NULLIF(o.saldo_onprem, 0)) * 100 AS pct_diferencia,
+    CASE
+        WHEN ABS(pct_diferencia) < 0.001 THEN '✅ OK'
+        WHEN ABS(pct_diferencia) < 0.01  THEN '⚠️ Revisar'
+        ELSE '❌ Alerta'
+    END AS estado_reconciliacion
+FROM onprem o
+JOIN azure a USING (fecha)
+```
+
+- **Umbral aceptable bancario:** diferencia < 0.001% en saldos (1 peso en 100,000)
+- **Período mínimo de shadow run:** 3 cierres contables consecutivos sin diferencia
+- **Responsable:** área de Auditoría Interna debe validar y firmar cada reconciliación
+
+### Herramientas de Migración y Conectividad
+
+| Herramienta | Rol | Docs |
+|-------------|-----|------|
+| **ADF Self-Hosted IR** | Agente dentro de la red del banco para conectar on-prem | [→](https://learn.microsoft.com/es-es/azure/data-factory/create-self-hosted-integration-runtime) |
+| **Azure ExpressRoute** | Conexión privada dedicada banco ↔ Azure (no pasa por internet) | [→](https://learn.microsoft.com/es-es/azure/expressroute/expressroute-introduction) |
+| **Fabric Private Endpoints** | Acceso privado a Fabric sin exposición pública | [→](https://learn.microsoft.com/es-es/fabric/security/security-private-links-overview) |
+| **Azure Key Vault** | Almacén de secrets, claves y certificados — nunca en código | [→](https://learn.microsoft.com/es-es/azure/key-vault/general/overview) |
+| **Debezium (OSS)** | CDC desde PostgreSQL, Oracle, SQL Server, MySQL | [→](https://debezium.io/documentation/reference/stable/) |
+| **Qlik Replicate** | CDC empresarial desde Mainframe, Oracle, AS400 | [→](https://www.qlik.com/us/products/qlik-replicate) |
+| **Attunity (AWS DMS alternativa)** | Replicación de datos para migración desde DWH legacy | [→](https://learn.microsoft.com/es-es/azure/dms/dms-overview) |
+| **Azure Database Migration Service** | Migración de SQL Server, Oracle on-prem a Azure | [→](https://learn.microsoft.com/es-es/azure/dms/dms-overview) |
+| **Microsoft Sentinel** | SIEM cloud-native para seguridad y monitoreo de amenazas | [→](https://learn.microsoft.com/es-es/azure/sentinel/overview) |
+
+---
+
 ## 🟡 dbt — El Protagonista de la Transformación
 
-> dbt trata el **SQL como código**: versionado, testeado, documentado y desplegado con los mismos estándares que el software de producción. Es la columna vertebral de la transformación y el gobierno del dato en este stack.
+> dbt trata el **SQL como código**: versionado, testeado, documentado y desplegado con los mismos estándares que el software de producción.
 
 ### SQL como Código
-
-dbt convierte cada modelo SQL en una unidad de software:
 
 - **Control de versiones completo** en Git: cada cambio tiene autor, fecha y mensaje
 - **Code Review obligatorio** con Pull Request antes de llegar a producción
@@ -86,93 +315,134 @@ dbt convierte cada modelo SQL en una unidad de software:
 | **Data health checks** | Freshness, coverage y anomaly detection | Elementary OSS |
 
 ```yaml
-# Ejemplo schema.yml — tests + documentación + ownership
+# schema.yml — ejemplo bancario con tests + documentación + ownership
 models:
-  - name: fct_ventas
-    description: "Tabla de hechos de ventas. Propietario: equipo_comercial"
+  - name: fct_transacciones
+    description: "Hechos de transacciones. Propietario: equipo_riesgo_operacional"
     meta:
-      owner: equipo_comercial
+      owner: equipo_riesgo_operacional
+      regulatorio: true
+      pii: true
     columns:
-      - name: venta_id
-        description: "ID único de la venta"
+      - name: transaccion_id
         tests:
           - unique
           - not_null
-      - name: cliente_id
+      - name: monto
         tests:
           - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 10000000   # límite operacional del banco
+      - name: cuenta_id
+        tests:
           - relationships:
-              to: ref('dim_cliente')
-              field: cliente_id
+              to: ref('dim_cuenta')
+              field: cuenta_id
 ```
 
-### Linaje de Datos
+### dbt Source Freshness — Configuración para Banca
 
-- Generado automáticamente desde `ref()` y `source()` en cada modelo
-- DAG visual completo en dbt Docs
-- Integración con **Microsoft Purview** para linaje end-to-end
-- **Impact analysis**: saber qué se rompe antes de hacer un cambio
+El freshness de fuentes es crítico en banca: un dato de saldos desactualizado puede generar un reporte regulatorio incorrecto o una decisión de crédito errónea.
 
+```yaml
+# models/sources.yml
+sources:
+  - name: core_bancario
+    description: "Sistema core bancario — fuente de verdad de cuentas y saldos"
+    database: fabric_prod
+    schema: raw_core
+    loaded_at_field: _ingested_at   # columna de auditoría obligatoria en raw
+    freshness:
+      warn_after:  { count: 1,  period: hour  }  # alerta si no llega en 1h
+      error_after: { count: 4,  period: hour  }  # falla el pipeline si >4h sin datos
+    tables:
+      - name: cuentas
+        description: "Cuentas activas del core bancario"
+        freshness:
+          warn_after:  { count: 30, period: minute }  # cierre diario: crítico
+          error_after: { count: 2,  period: hour   }
+
+      - name: transacciones
+        description: "Movimientos transaccionales — alta frecuencia"
+        freshness:
+          warn_after:  { count: 15, period: minute }  # intraday: muy crítico
+          error_after: { count: 45, period: minute }
+
+  - name: buró_crédito
+    description: "Respuestas del buró de crédito — batch nocturno"
+    loaded_at_field: _ingested_at
+    freshness:
+      warn_after:  { count: 25, period: hour }  # batch nocturno: ciclo de 24h
+      error_after: { count: 49, period: hour }  # +1h de tolerancia sobre 48h
+    tables:
+      - name: consultas_buro
+      - name: scores_externos
+
+  - name: monitoreo_aml
+    description: "Alertas del sistema de monitoreo AML"
+    loaded_at_field: _ingested_at
+    freshness:
+      warn_after:  { count: 10, period: minute }  # AML en tiempo casi-real
+      error_after: { count: 30, period: minute }
+    tables:
+      - name: alertas_transaccionales
+      - name: listas_negras
 ```
-source(crm) → brz_crm__clientes → slv_clientes → dim_cliente → fct_ventas → RPT_Ventas
+
+**Cómo ejecutar freshness en el pipeline:**
+```bash
+# Antes de cualquier dbt run en producción
+dbt source freshness --select source:core_bancario
+
+# En CI/CD: validar freshness + tests + run
+dbt source freshness && dbt test && dbt run --select tag:daily
 ```
 
 ### Gobierno y Contratos
 
 ```yaml
-# Data Contract declarado en schema.yml
+# Data Contract bancario — schema.yml
 models:
-  - name: dim_cliente
+  - name: dim_cliente_bancario
     config:
       contract:
-        enforced: true       # falla el build si el schema no coincide
+        enforced: true
+    meta:
+      owner: equipo_retail
+      clasificacion: PII
+      sla: "disponible antes de las 06:00 UTC"
     columns:
       - name: cliente_id
         data_type: varchar
         constraints:
           - type: not_null
           - type: unique
+      - name: rfc
+        data_type: varchar
+        description: "RFC enmascarado para entornos no-prod"
+        meta:
+          pii: true
+          mascara: "XXXX######XXX"
 ```
-
-- **Modelos públicos**: expuestos a otros proyectos/dominios con SLA garantizado
-- **Modelos privados**: internos al dominio, sin contrato externo
-- **dbt Mesh**: arquitectura multi-proyecto para gobernanza federada por dominio
-- **Ownership**: `meta.owner` declarado en cada modelo
-- **Diccionario de datos**: `description:` en schema.yml = documentación ejecutable
 
 ### Portabilidad — Sin Vendor Lock-in
 
 ```yaml
-# profiles.yml — solo cambiar el adaptador para cambiar de plataforma
+# profiles.yml
 my_project:
   target: prod
   outputs:
     prod:
-      type: fabric          # ← cambiar por: snowflake | bigquery | databricks
+      type: fabric          # cambiar por: snowflake | bigquery | databricks
       server: ...
 ```
-
-El mismo código SQL funciona sobre Fabric, Snowflake, BigQuery o Databricks.
-
-### Recursos de Aprendizaje
-
-| Recurso | Descripción |
-|---------|-------------|
-| [dbt Core](https://docs.getdbt.com/docs/core/installation-overview) | Motor OSS, gratis e instalable en cualquier entorno |
-| [dbt Cloud](https://docs.getdbt.com/docs/cloud/about-cloud/dbt-cloud-features) | SaaS con IDE, scheduler, CI/CD y alertas |
-| [dbt Mesh](https://docs.getdbt.com/docs/collaborate/govern/about-dbt-mesh) | Gobernanza federada multi-proyecto |
-| [dbt Semantic Layer](https://docs.getdbt.com/docs/use-dbt-semantic-layer/dbt-sl) | Métricas centralizadas consumibles desde cualquier BI |
-| [dbt-fabric adapter](https://docs.getdbt.com/docs/core/connect-data-platform/fabric-setup) | Adaptador oficial para Microsoft Fabric |
-| [dbt Data Contracts](https://docs.getdbt.com/docs/collaborate/govern/model-contracts) | Contratos de schema versionados y validados |
-| [dbt Docs](https://docs.getdbt.com/docs/collaborate/documentation) | Portal de documentación auto-generado |
-| [Elementary OSS](https://docs.elementary-data.com) | Observabilidad nativa de dbt |
-| [dbt-expectations](https://github.com/calogica/dbt-expectations) | +50 tests avanzados para dbt |
 
 ---
 
 ## 🟣 Microsoft Fabric — La Plataforma Unificada
 
-> Microsoft Fabric es la plataforma analítica SaaS unificada de Microsoft: **OneLake, One Security, One Governance, One Monitoring**. Elimina silos de datos con un modelo de pago por uso (F-SKUs) y es el hogar natural de dbt en Azure.
+> Microsoft Fabric es la plataforma analítica SaaS unificada: **OneLake, One Security, One Governance, One Monitoring**. Para banca, es fundamental la separación por zona de seguridad y el cumplimiento normativo nativo.
 
 ### OneLake — Single Data Lake
 
@@ -188,96 +458,38 @@ El mismo código SQL funciona sobre Fabric, Snowflake, BigQuery o Databricks.
 └─────────────────────────────────────────────────────┘
 ```
 
-- **Un solo lago lógico** para toda la organización, múltiples workspaces
-- **Zero-copy shortcuts**: acceder a datos externos sin moverlos ni duplicarlos
-- **Formato Delta/Parquet abierto**: portable a cualquier plataforma, sin lock-in
-- Compatible con ADLS Gen2, S3 y GCS vía shortcuts externos
-
-### One Security & One Governance
-
-- **One Access Control Experience**: permisos unificados para todos los items desde un único panel
-- Integración nativa con **Microsoft Purview**: catálogo, linaje y clasificación automática
-- Row-level security y column-level security en Warehouse
-- Sensitivity labels automáticos desde Purview a todos los datasets
-- Audit logs centralizados para cumplimiento normativo (GDPR, SOC2, etc.)
-
 ### F-SKUs — Escalabilidad por Dominio
 
-| SKU | CUs | Caso de uso |
-|-----|-----|-------------|
-| F2  | 2   | Desarrollo y pruebas |
-| F4  | 4   | Dominio pequeño en producción |
-| F8  | 8   | Dominio mediano, cargas regulares |
-| F16+| 16+ | Dominios críticos, alta concurrencia |
-| F64+| 64+ | Plataforma enterprise completa |
+| SKU | CUs | Caso de uso bancario |
+|-----|-----|---------------------|
+| F2  | 2   | Desarrollo y pruebas con datos sintéticos |
+| F8  | 8   | Dominio retail o canales digitales |
+| F16 | 16  | Dominio riesgo de crédito (cálculos IFRS 9) |
+| F32 | 32  | Dominio AML (procesamiento de alertas en batch) |
+| F64+| 64+ | Plataforma enterprise + zona regulatoria completa |
 
-- **Pagar por uso real**, no por almacenamiento fijo
-- **Burst automático** para picos de carga sin aprovisionamiento manual
-- Separar capacidades F-SKU por dominio: ventas ≠ finanzas ≠ datos crudos
-- **Escalar almacenamiento y cómputo de forma independiente**
+> ⚠️ **Para banca**: separar F-SKUs obligatoriamente entre zona PCI, zona regulatoria y zona analítica. Compartir capacidad entre zonas de seguridad distintas es un riesgo de cumplimiento.
 
-### Integración con dbt ← Clave
+### Herramientas de Fabric para el Stack Bancario
 
-```
-dbt Core/Cloud
-      │
-      │ dbt-fabric adapter
-      ▼
-Fabric Warehouse ──── OneLake ──── Fabric Lakehouse
-      │                                    │
-   Gold / Semántica               Bronze / Silver
-```
-
-- **dbt-fabric adapter** oficial: conecta dbt directamente con Fabric Warehouse
-- **dbt Jobs** ejecutan sobre Fabric Lakehouse y Warehouse sin infraestructura adicional
-- **Linaje dbt visible en Purview**: trazabilidad end-to-end automática
-- CI/CD: dbt test en PR → dbt job en stage → dbt job en prod
-- OneLake como destino de todos los modelos dbt: Bronze, Silver, Gold
-
-### Herramientas de Fabric para el Stack
-
-| Herramienta | Rol en el stack | Docs |
-|-------------|-----------------|------|
+| Herramienta | Rol en banca | Docs |
+|-------------|-------------|------|
 | **Lakehouse** | Bronze y Silver sobre Delta Lake | [→](https://learn.microsoft.com/es-es/fabric/data-engineering/lakehouse-overview) |
-| **Warehouse** | Gold y capa Semántica con SQL serverless | [→](https://learn.microsoft.com/es-es/fabric/data-warehouse/data-warehousing) |
-| **Data Factory** | Ingesta nativa con +150 conectores | [→](https://learn.microsoft.com/es-es/fabric/data-factory/data-factory-overview) |
-| **DirectLake** | Power BI lee OneLake sin copiar datos | [→](https://learn.microsoft.com/es-es/fabric/fundamentals/direct-lake-overview) |
-| **Notebooks** | PySpark para ML y Feature Engineering | [→](https://learn.microsoft.com/es-es/fabric/data-engineering/how-to-use-notebook) |
-| **Monitoring Hub** | Visibilidad unificada de jobs y consumos | [→](https://learn.microsoft.com/es-es/fabric/admin/monitoring-hub) |
-| **Real-Time Intelligence** | Streaming y análisis en tiempo real | [→](https://learn.microsoft.com/es-es/fabric/real-time-intelligence/overview) |
-| **Semantic Model** | DirectLake desde OneLake a Power BI | [→](https://learn.microsoft.com/es-es/fabric/get-started/microsoft-fabric-overview) |
-| **Purview + Fabric** | One Governance para todos los items | [→](https://learn.microsoft.com/es-es/fabric/governance/microsoft-purview-fabric) |
-| **F-SKUs / Pricing** | Capacidad flexible por dominio | [→](https://learn.microsoft.com/es-es/fabric/enterprise/licenses) |
-
-### Ambientes en Fabric — Dev / Stage / Prod
-
-```
-fabric-dev              fabric-stage            fabric-prod
-├── lh_raw_crm          ├── lh_raw_crm          ├── lh_raw_crm
-├── lh_bronze_crm       ├── lh_bronze_crm       ├── lh_bronze_crm
-├── lh_silver           ├── lh_silver           ├── lh_silver
-├── wh_gold             ├── wh_gold             ├── wh_gold
-└── sm_ventas           └── sm_ventas           └── sm_ventas
-```
-
-- Un **workspace de Fabric por ambiente**: misma estructura, datos separados
-- **Zero-copy cloning** para crear entornos de dev sin duplicar datos de prod
-- Variables de entorno en dbt (`profiles.yml`) apuntan al workspace correcto
-- CI/CD: PR → deploy automático en stage → aprobación manual → prod
-
-### Sin Vendor Lock-in
-
-- Datos en **Delta/Parquet abierto**: legible desde Databricks, Synapse, Spark, etc.
-- ADLS Gen2 compatible: accesible desde cualquier herramienta del ecosistema
-- Shortcuts: conectar datos externos sin moverlos a OneLake
-- dbt como capa portable: cambiar Fabric = cambiar solo el adaptador
+| **Warehouse** | Gold regulatorio + Semántico con SQL serverless | [→](https://learn.microsoft.com/es-es/fabric/data-warehouse/data-warehousing) |
+| **Data Factory** | Ingesta desde core bancario y sistemas legacy | [→](https://learn.microsoft.com/es-es/fabric/data-factory/data-factory-overview) |
+| **Real-Time Intelligence** | Detección de fraude y AML en streaming | [→](https://learn.microsoft.com/es-es/fabric/real-time-intelligence/overview) |
+| **DirectLake** | Power BI para dashboards regulatorios sin copia | [→](https://learn.microsoft.com/es-es/fabric/fundamentals/direct-lake-overview) |
+| **Notebooks** | Modelos IFRS 9, scoring, feature engineering | [→](https://learn.microsoft.com/es-es/fabric/data-engineering/how-to-use-notebook) |
+| **Monitoring Hub** | Visibilidad de jobs + cumplimiento de SLAs regulatorios | [→](https://learn.microsoft.com/es-es/fabric/admin/monitoring-hub) |
+| **Purview + Fabric** | Linaje trazable para auditorías CNBV/Banxico | [→](https://learn.microsoft.com/es-es/fabric/governance/microsoft-purview-fabric) |
+| **Private Links** | Aislamiento de red obligatorio para datos bancarios | [→](https://learn.microsoft.com/es-es/fabric/security/security-private-links-overview) |
 
 ---
 
 ## 📅 Roadmap de Implementación
 
 > Inicio: **9 de marzo de 2026** · Equipo de 5 personas · Estimado optimista  
-> ⚠️ El tiempo real depende del levantamiento de dominios y fuentes de datos.
+> ⚠️ El tiempo real depende del levantamiento de dominios y fuentes de datos. En banca, sumar 20-30% por tiempos de cumplimiento y aprobaciones de seguridad.
 
 ```mermaid
 gantt
@@ -296,19 +508,17 @@ gantt
     Stack completo en producción    :milestone, 2026-11-04, 0d
 ```
 
-**Total estimado: 155–225 días hábiles** (marzo → noviembre 2026)
-
 ### Hitos y Entregables
 
 | Fecha | Hito | Entregables clave |
 |-------|------|-------------------|
 | **9 Mar 2026** | Kick-off | Presentación aprobada, equipo formado |
 | **24 Mar 2026** | Levantamiento | Dominios mapeados, fuentes identificadas, contratos iniciales |
-| **7 May 2026** | Fundación 20% | Workspaces Fabric dev/stage/prod · Lakehouse RAW · Pipelines ADF · Purview inicial · RBAC |
-| **7 Jul 2026** | Transformar 40% | dbt Bronze/Silver/Gold · CI/CD · dbt Docs · Elementary · Alertas SLA |
-| **21 Ago 2026** | Semántica 60% | dbt Semantic Layer · Fabric Semantic Model · DirectLake · API métricas |
-| **5 Oct 2026** | Aprovechar 80% | Power BI dashboards · Azure ML · Feature Store · RAG OpenAI |
-| **4 Nov 2026** | 🏁 Producción 100% | DAGs E2E · Monitoring Hub · Runbooks · Stack completo |
+| **7 May 2026** | Fundación 20% | Workspaces por zona (PCI/Reg/Analytics) · Lakehouse RAW · ADF SHIR · Purview · RBAC · ExpressRoute |
+| **7 Jul 2026** | Transformar 40% | dbt Bronze/Silver/Gold · CI/CD · dbt Docs · Elementary · Freshness · Alertas SLA · Reconciliación on-prem |
+| **21 Ago 2026** | Semántica 60% | dbt Semantic Layer · Fabric Semantic Model · DirectLake · API métricas · Dominio regulatorio |
+| **5 Oct 2026** | Aprovechar 80% | Power BI dashboards · Azure ML (IFRS 9, fraude, churn) · Feature Store · RAG sobre datos propios |
+| **4 Nov 2026** | 🏁 Producción 100% | DAGs E2E · Monitoring Hub · Runbooks · Reconciliación validada · Stack completo |
 
 ---
 
@@ -316,26 +526,19 @@ gantt
 
 **⏱ 30–45 días** · Capas: `EXTRAER` `CARGAR` `ALMACENAR` `GOBERNAR`
 
-> Base mínima viable. Sin esta fundación ninguna capa superior es sostenible.
+> En banca: incluir desde el día 1 la aprobación de Seguridad de TI, Cumplimiento y Auditoría Interna sobre la arquitectura de red y el modelo de acceso.
 
 ```
-Fuentes (CRM · ERP · APIs)
+Fuentes (Core · Tarjetas · AML · Bureau)
         ↓
-   [ADF · Airbyte]          ← EXTRAER: identificar por sistema, no por dominio
+   [ADF + SHIR · Debezium]   ← EXTRAER: CDC desde sistemas on-prem
         ↓
-  [lh_raw_{sistema}]        ← CARGAR: aterrizaje en Fabric Lakehouse RAW
+  [lh_raw_{sistema}]          ← CARGAR: aterrizaje en Fabric RAW (zona segura)
         ↓
-     [OneLake]              ← ALMACENAR: Delta Lake sobre OneLake
+     [OneLake]                ← ALMACENAR: Delta Lake sobre OneLake
         ↕
-   [Purview · RBAC]         ← GOBERNAR: catálogo y contratos desde el día 1
+   [Purview · RBAC · Key Vault · Private Link]  ← GOBERNAR desde día 1
 ```
-
-| Capa | Herramientas |
-|------|-------------|
-| 📥 EXTRAER | Azure Data Factory · Event Hubs · Airbyte |
-| 📤 CARGAR | ADF Copy Activity · Fabric Data Factory · COPY INTO |
-| 🗄️ ALMACENAR | Fabric Lakehouse · OneLake · Delta Lake |
-| 🛡️ GOBERNAR | Microsoft Purview · Azure Policy · dbt Tests |
 
 ---
 
@@ -343,21 +546,19 @@ Fuentes (CRM · ERP · APIs)
 
 **⏱ 45–60 días** · Añade: `TRANSFORMAR` `OBSERVABILIDAD`
 
-> ELT con dbt sobre Fabric. El dato como Software: versionado, testeado y documentado.
-
 ```
 lh_raw_{sistema}  →  [dbt Bronze]  →  [dbt Silver]  →  [dbt Gold]
                           ↕                 ↕                ↕
-                     [Elementary · Azure Monitor · dbt Artifacts]
+              [Elementary · Azure Monitor · dbt Source Freshness]
 ```
 
-**Arquitectura Medallion con dbt + Fabric:**
+**Arquitectura Medallion bancaria:**
 
 | Capa | Lakehouse Item | Modelos dbt | Descripción |
 |------|---------------|-------------|-------------|
-| Bronze | `lh_bronze_{sistema}` | `brz_{sistema}__{entidad}.sql` | JSON descompuesto, sin transformar |
-| Silver | `lh_silver` | `slv_{entidad}.sql` | Limpio, deduplicado, tipado |
-| Gold | `wh_gold` | `fct_{hecho}.sql` / `dim_{dim}.sql` | Agregado, listo para consumo |
+| Bronze | `lh_bronze_{sistema}` | `brz_{sistema}__{entidad}.sql` | Datos crudos descompuestos, sin lógica de negocio |
+| Silver | `lh_silver` | `slv_{entidad}.sql` | Limpio, deduplicado, enmascarado PII para dev |
+| Gold | `wh_gold_{dominio}` | `fct_{hecho}.sql` / `dim_{dim}.sql` | Lógica regulatoria y de negocio, listo para consumo |
 
 ---
 
@@ -365,30 +566,15 @@ lh_raw_{sistema}  →  [dbt Bronze]  →  [dbt Silver]  →  [dbt Gold]
 
 **⏱ 30–45 días** · Añade: `SEMÁNTICA`
 
-> Una sola definición de métricas para todos los consumidores. dbt + Fabric garantizan consistencia total.
-
 ```
-Gold (wh_gold)
+Gold (wh_gold_{dominio})
       ↓
 [dbt Semantic Layer]  ←→  [Fabric Semantic Model]
       ↓                           ↓
   REST API                   DirectLake
       ↓                           ↓
-  Azure ML                    Power BI
+  Azure ML / IFRS 9           Power BI regulatorio
 ```
-
-**Mejores prácticas dbt + Fabric en la capa semántica:**
-- Definir métricas en dbt Semantic Layer como fuente de verdad
-- Fabric Semantic Model consume las Gold tables vía DirectLake (cero copia)
-- Un Semantic Model por dominio de negocio
-- Versionar todas las definiciones en Git junto con los modelos dbt
-
-| Herramienta | Rol |
-|-------------|-----|
-| dbt Metrics Layer | Define las métricas en YAML versionado |
-| Fabric Semantic Model | Expone métricas a Power BI vía DirectLake |
-| Power BI Dataset | Compartido entre múltiples reportes |
-| Analysis Services | OLAP tabular para modelos complejos |
 
 ---
 
@@ -396,26 +582,16 @@ Gold (wh_gold)
 
 **⏱ 30–45 días** · Añade: `APROVECHAR`
 
-> El dato genera valor: dashboards, modelos ML e IA sobre datos propios. Dato como Feature (DaaF).
+**Casos de uso ML en banca:**
 
-```
-[Fabric Semantic Model / OneLake]
-        ↓              ↓              ↓
-   Power BI        Azure ML      Azure OpenAI
- (DirectLake)   (Feature Store)    (RAG)
-```
-
-**dbt y Fabric en esta capa:**
-- Power BI conecta a **Fabric Semantic Model via DirectLake** — cero latencia, cero copia
-- Las Gold tables de dbt alimentan directamente el **Feature Store de Azure ML**
-- **Fabric Notebooks** (PySpark) para Feature Engineering sobre OneLake
-- RAG con Azure OpenAI + Azure AI Search indexando datos del Lakehouse
-
-**Mejores prácticas:**
-- Power BI conecta SIEMPRE al Semantic Model, nunca a tablas crudas
-- Feature Store centralizado para consistencia entrenamiento/inferencia
-- Versionar modelos ML con MLflow en Azure ML Workspace
-- Monitorear drift de datos y modelos como parte de Observabilidad
+| Modelo | Datos de entrada | Plataforma | Regulatorio |
+|--------|-----------------|------------|-------------|
+| Scoring crediticio | historial pagos, bureau, comportamiento | Azure ML + dbt features | IFRS 9 (PD) |
+| PD/LGD/EAD (IFRS 9) | cartera, colateral, flujos | Azure ML + Fabric Notebooks | IFRS 9 obligatorio |
+| Detección de fraude | transacciones, comportamiento digital | Azure ML real-time endpoint | PCI DSS |
+| Detección AML | redes de transacciones, patrones | Azure ML + Graph analytics | FATF / Banxico |
+| Churn de clientes | productos, actividad, canales | Azure ML + Power BI | — |
+| Propensión a producto | perfil, ciclo de vida, segmento | Azure ML + CRM | — |
 
 ---
 
@@ -423,21 +599,36 @@ Gold (wh_gold)
 
 **⏱ 20–30 días** · Añade: `ORQUESTADOR`
 
-> El orquestador conecta todo el stack de extremo a extremo.
-
 ```
-[ADF]  →  EXTRAER → CARGAR
-[dbt Jobs on Fabric]  →  TRANSFORMAR → SEMÁNTICA
-[Airflow DAGs]  →  coordina dependencias entre etapas
-[Fabric Monitoring Hub]  →  visibilidad unificada
+[ADF + SHIR]            →  EXTRAER on-prem → CARGAR Raw
+[dbt Jobs on Fabric]    →  TRANSFORMAR Bronze → Silver → Gold
+[Airflow DAGs]          →  coordina dominios + dependencias regulatorias
+[Fabric Monitoring Hub] →  visibilidad unificada + alertas SLA
 ```
 
-| Herramienta | Responsabilidad |
-|-------------|-----------------|
-| Azure Data Factory | Orquesta ingesta y pipelines de carga |
-| dbt Jobs (Fabric) | Ejecuta transformaciones Bronze→Silver→Gold |
-| Apache Airflow | DAGs complejos con dependencias entre dominios |
-| Fabric Monitoring Hub | Visibilidad unificada de todos los jobs |
+**Ejemplo DAG bancario — cierre diario:**
+```python
+# dags/banco_cierre_diario.py
+with DAG('banco_cierre_diario', schedule_interval='0 2 * * *') as dag:
+    # 1. Verificar freshness de todas las fuentes
+    check_freshness   = BashOperator(cmd='dbt source freshness')
+    # 2. Ingesta incremental (ADF trigger)
+    ingest_core       = ADFTrigger(pipeline='pl_load_core_daily')
+    ingest_tarjetas   = ADFTrigger(pipeline='pl_load_tarjetas_daily')
+    # 3. Transformaciones dbt por capa
+    run_bronze        = DbtRunOperator(select='tag:bronze tag:daily')
+    run_silver        = DbtRunOperator(select='tag:silver tag:daily')
+    run_gold          = DbtRunOperator(select='tag:gold tag:daily')
+    # 4. Tests de calidad
+    test_gold         = DbtTestOperator(select='tag:gold tag:critical')
+    # 5. Reconciliación on-prem vs Azure
+    recon             = DbtRunOperator(select='rpt_recon_saldos')
+    # 6. Reportes regulatorios
+    run_regulatorio   = DbtRunOperator(select='tag:cnbv tag:daily')
+
+    check_freshness >> [ingest_core, ingest_tarjetas] >> run_bronze \
+        >> run_silver >> run_gold >> test_gold >> recon >> run_regulatorio
+```
 
 ---
 
@@ -445,380 +636,328 @@ Gold (wh_gold)
 
 ### 📥 EXTRAER
 
-> Ingesta desde fuentes heterogéneas. Identificar por sistema origen, no por dominio de negocio.
-
-**Mejores prácticas**
-- Identificar fuentes por **sistema origen** (CRM, ERP, API) — no por dominio de negocio
-- Nunca transformar en extracción — Schema-on-Read estricto
-- Registrar metadatos por cada ingesta (timestamp, volumen, estado)
-- CDC para capturar solo cambios incrementales
-- Reintentos automáticos ante fallos de conexión
+**Mejores prácticas bancarias**
+- Identificar fuentes por **sistema origen** (core, tarjetas, LOS, AML) — el dominio se asigna en Silver
+- **CDC obligatorio** para sistemas transaccionales de alto volumen (core bancario, tarjetas)
+- Para mainframes/AS400: usar Qlik Replicate o IBM InfoSphere CDC — Debezium no conecta con COBOL directamente
+- **Schema-on-Read**: los archivos planos COBOL (fixed-width) llegan intactos — dbt los parsea en Bronze
+- Registrar metadatos por cada ingesta: timestamp, volumen, hash de control
+- Reintentos automáticos con backoff exponencial
+- **Nunca** conectar ADF directamente a bases de datos de producción OLTP del banco — usar réplicas de lectura
 
 **Nomenclatura**
 ```
 Carpetas:    raw/{sistema_origen}/{entidad}/año=YYYY/mes=MM/día=DD/
-Archivos:    {sistema}_{entidad}_{timestamp}.parquet
+Archivos:    {sistema}_{entidad}_{timestamp_utc}.parquet
 Pipelines:   pl_{sistema}_{entidad}_{tipo}
-             ej. pl_crm_clientes_full · pl_erp_pedidos_cdc
+             ej. pl_core_cuentas_cdc · pl_tarjetas_transacciones_intraday
 ```
-
-**Herramientas**
 
 | Herramienta | Descripción | Docs |
 |-------------|-------------|------|
-| Azure Data Factory | +90 conectores nativos gestionados | [→](https://learn.microsoft.com/es-es/azure/data-factory/introduction) |
-| Fabric Data Factory | Pipelines nativos de Fabric con +150 conectores | [→](https://learn.microsoft.com/es-es/fabric/data-factory/data-factory-overview) |
-| Azure Event Hubs | Streaming Kafka-compatible | [→](https://learn.microsoft.com/es-es/azure/event-hubs/event-hubs-about) |
-| Airbyte OSS | +300 conectores open-source sin vendor lock-in | [→](https://docs.airbyte.com) |
+| ADF + Self-Hosted IR | Conecta on-prem de forma segura sin exponer la red | [→](https://learn.microsoft.com/es-es/azure/data-factory/create-self-hosted-integration-runtime) |
+| Fabric Data Factory | Pipelines nativos Fabric con +150 conectores | [→](https://learn.microsoft.com/es-es/fabric/data-factory/data-factory-overview) |
+| Azure Event Hubs | Streaming Kafka-compatible para fraude y AML | [→](https://learn.microsoft.com/es-es/azure/event-hubs/event-hubs-about) |
+| Debezium OSS | CDC desde PostgreSQL, Oracle, SQL Server, MySQL | [→](https://debezium.io/documentation/) |
+| Airbyte OSS | +300 conectores sin vendor lock-in | [→](https://docs.airbyte.com) |
 
 ---
 
 ### 📤 CARGAR
 
-> Aterrizaje de datos crudos al Lakehouse de Fabric. JSON llegan intactos — dbt los descompone en Bronze.
-
-**Patrón ELT — JSON intactos**
-
-```
-API externa → JSON raw → lh_raw_{sistema} → (dbt Bronze descompone)
-                ↑
-         NO tocar aquí
-         Llega intacto
-```
-
-**Metadata obligatoria — Nunca cargar sin marcar**
+**Metadata obligatoria — nunca cargar sin marcar**
 
 ```sql
--- Columnas obligatorias en TODA tabla raw
 _ingested_at      TIMESTAMP  -- momento exacto de carga UTC
-_source_system    STRING     -- sistema origen: crm | erp | api_pagos
+_source_system    STRING     -- core | tarjetas | los | aml | buro
 _source_entity    STRING     -- entidad/tabla/endpoint origen
 _source_file      STRING     -- ruta o nombre del archivo fuente
 _batch_id         STRING     -- ID único de la ejecución del pipeline
 _raw_hash         STRING     -- hash MD5/SHA del registro para deduplicación
 _pipeline_name    STRING     -- nombre del pipeline ADF
 _is_deleted       BOOLEAN    -- flag CDC para eliminaciones lógicas
+_clasificacion    STRING     -- PII | PCI | CONFIDENCIAL | INTERNO (para Purview)
 ```
 
-**Nomenclatura de Lakehouse Items en Fabric**
-```
-Lakehouse RAW:   lh_raw_{sistema}      ej. lh_raw_crm · lh_raw_erp
-Tablas raw:      raw__{sistema}__{entidad}
-                 ej. raw__crm__clientes · raw__erp__pedidos
-Workspaces:      {org}-fabric-dev · {org}-fabric-stage · {org}-fabric-prod
-Pipelines ADF:   pl_load_{sistema}_{entidad}_{frecuencia}
-```
+> ⚠️ En banca agregar `_clasificacion` desde el origen: Purview usará este campo para aplicar sensitivity labels automáticamente.
 
-**Herramientas**
-
-| Herramienta | Descripción | Docs |
-|-------------|-------------|------|
-| ADF Copy Activity | Carga masiva con metadata de auditoría automática | [→](https://learn.microsoft.com/es-es/azure/data-factory/copy-activity-overview) |
-| Fabric Lakehouse (RAW) | Item Fabric para aterrizaje sobre OneLake | [→](https://learn.microsoft.com/es-es/fabric/data-engineering/lakehouse-overview) |
-| COPY INTO | Carga masiva SQL nativa desde OneLake | [→](https://learn.microsoft.com/es-es/sql/t-sql/statements/copy-into-transact-sql) |
-| dbt Seeds | Catálogos y datos de referencia en Git | [→](https://docs.getdbt.com/docs/build/seeds) |
+**Nomenclatura bancaria**
+```
+lh_raw_core · lh_raw_tarjetas · lh_raw_los · lh_raw_aml · lh_raw_buro
+Tablas: raw__{sistema}__{entidad}  ej. raw__core__cuentas · raw__aml__alertas
+```
 
 ---
 
 ### ⚙️ TRANSFORMAR
 
-> ELT con dbt sobre Fabric. SQL como código: versionado, testeado, documentado, desplegado.
+**Prácticas adicionales para banca**
+- Bronze descompone archivos COBOL fixed-width y JSONs del core — nunca en la carga
+- Silver aplica **enmascaramiento de PII** (RFC, CURP, número de tarjeta truncado) para entornos no-prod
+- Gold contiene lógica regulatoria: cálculo de mora, staging IFRS 9, clasificación AML
+- **Tests regulatorios como tests singulares** de dbt: ej. "ninguna cuenta activa puede tener saldo negativo sin autorización"
+- dbt Mesh: proyecto dbt por dominio regulatorio — `dbt_riesgo`, `dbt_aml`, `dbt_retail`
 
-**Mejores prácticas**
-- dbt descompone JSON raw en Bronze — nunca en la carga
-- Medallion: Bronze (raw descompuesto) → Silver (limpio) → Gold (negocio)
-- Tests en cada modelo: `unique`, `not_null`, `relationships`, `accepted_values`
-- Documentar en `schema.yml` — la documentación es código ejecutable
-- CI/CD: `dbt test` en cada PR, `dbt run` solo tras tests verdes
-- dbt Mesh para separar proyectos por dominio con contratos de interfaz
-
-**Nomenclatura dbt + Fabric**
+**Nomenclatura**
 ```
-Bronze: brz_{sistema}__{entidad}.sql     ej. brz_crm__clientes.sql
-Silver: slv_{entidad}.sql                ej. slv_clientes.sql
-Gold:   fct_{hecho}.sql                  ej. fct_ventas.sql
-        dim_{dimension}.sql              ej. dim_cliente.sql
-Schemas Fabric: bronze · silver · gold
-Tags dbt:       daily · weekly · critical · pii
+Bronze: brz_{sistema}__{entidad}.sql   ej. brz_core__cuentas.sql
+Silver: slv_{entidad}.sql              ej. slv_cuentas.sql · slv_transacciones.sql
+Gold:   fct_{proceso}.sql              ej. fct_originacion.sql · fct_pagos.sql
+        dim_{dimension}.sql            ej. dim_cliente_bancario.sql · dim_producto_financiero.sql
+        rpt_{reporte}.sql              ej. rpt_recon_saldos.sql · rpt_cnbv_r01.sql
+Tags:   pii · pci · ifrs9 · aml · cnbv · daily · intraday · critical
 ```
-
-**Herramientas**
-
-| Herramienta | Descripción | Docs |
-|-------------|-------------|------|
-| dbt Core / Cloud | Transformación SQL con tests, docs y CI/CD | [→](https://docs.getdbt.com) |
-| dbt-fabric adapter | Conecta dbt con Fabric Warehouse y Lakehouse | [→](https://docs.getdbt.com/docs/core/connect-data-platform/fabric-setup) |
-| Azure Databricks | Spark para transformaciones complejas sobre OneLake | [→](https://learn.microsoft.com/es-es/azure/databricks/introduction/) |
-| dbt-expectations | +50 tests de calidad avanzados | [→](https://github.com/calogica/dbt-expectations) |
 
 ---
 
 ### 💡 SEMÁNTICA
 
-> Una definición de negocio, múltiples consumidores. dbt + Fabric = Única Fuente de Verdad.
-
-**Herramientas**
-
-| Herramienta | Descripción | Docs |
-|-------------|-------------|------|
-| dbt Semantic Layer | Métricas en YAML versionadas y portables | [→](https://docs.getdbt.com/docs/use-dbt-semantic-layer/dbt-sl) |
-| Fabric Semantic Model | DirectLake desde OneLake a Power BI | [→](https://learn.microsoft.com/es-es/fabric/get-started/microsoft-fabric-overview) |
-| Power BI DirectLake | Consulta OneLake sin copiar datos | [→](https://learn.microsoft.com/es-es/fabric/fundamentals/direct-lake-overview) |
-| Analysis Services | OLAP tabular para modelos semánticos complejos | [→](https://learn.microsoft.com/es-es/azure/analysis-services/analysis-services-overview) |
+**Prácticas adicionales para banca**
+- Un Semantic Model por dominio regulatorio: `sm_riesgo`, `sm_aml`, `sm_retail`, `sm_regulatorio`
+- Las métricas regulatorias (LCR, NSFR, ratio de mora, NPL) se definen UNA vez en dbt Semantic Layer
+- El reporte regulatorio consume el mismo Semantic Model que el dashboard ejecutivo — misma fuente de verdad
+- API REST expuesta para sistemas de reporte regulatorio (CNBV, Banxico) externos a Power BI
 
 ---
 
 ### 🚀 APROVECHAR
 
-> El dato genera valor: BI, ML, IA Generativa, Feature Engineering. Dato como Feature (DaaF).
-
-**Herramientas**
-
-| Herramienta | Descripción | Docs |
-|-------------|-------------|------|
-| Power BI + DirectLake | BI líder con consulta directa sobre OneLake | [→](https://learn.microsoft.com/es-es/power-bi/fundamentals/power-bi-overview) |
-| Azure Machine Learning | MLOps: entrenamiento, registro y despliegue | [→](https://learn.microsoft.com/es-es/azure/machine-learning/overview-what-is-azure-machine-learning) |
-| Fabric Notebooks | PySpark integrado en Fabric para ML | [→](https://learn.microsoft.com/es-es/fabric/data-engineering/how-to-use-notebook) |
-| Azure OpenAI Service | GPT-4o y embeddings sobre datos propios (RAG) | [→](https://learn.microsoft.com/es-es/azure/ai-services/openai/overview) |
-| MLflow en Azure ML | Tracking y versionado del ciclo de vida ML | [→](https://learn.microsoft.com/es-es/azure/machine-learning/concept-mlflow) |
+**Prácticas adicionales para banca**
+- Power BI conecta SIEMPRE al Fabric Semantic Model — nunca a tablas Gold directamente
+- Separar reportes operativos (actualización cada 15 min) de reportes regulatorios (cierre diario/mensual)
+- Los modelos ML (IFRS 9, scoring) se versionan con MLflow y tienen proceso formal de validación interna antes de producción
+- **Model Risk Management (MRM)**: documentar cada modelo ML con inputs, supuestos, limitaciones y backtesting — exigido por reguladores bancarios
 
 ---
 
 ### 🗄️ ALMACENAR
 
-**Herramientas**
+**Prácticas adicionales para banca**
+- **Retención de datos mínima**: reguladores bancarios (CNBV, Banxico) exigen conservar ciertos datos 5-10 años
+- Configurar ciclos de vida en OneLake: datos >3 años a tier frío (ADLS Cool), >7 años a tier archivo (ADLS Archive)
+- **Inmutabilidad de logs**: los datos raw nunca se modifican — cualquier corrección es una nueva versión con CDC
+- Delta Lake time travel: permite reconstruir el estado de datos para auditorías de fechas pasadas (`VERSION AS OF`)
 
-| Herramienta | Descripción | Docs |
-|-------------|-------------|------|
-| Fabric Lakehouse | Bronze y Silver sobre Delta Lake en OneLake | [→](https://learn.microsoft.com/es-es/fabric/data-engineering/lakehouse-overview) |
-| Fabric Warehouse | Gold y Semántica con SQL serverless | [→](https://learn.microsoft.com/es-es/fabric/data-warehouse/data-warehousing) |
-| OneLake | Single Data Lake para toda la organización | [→](https://learn.microsoft.com/es-es/fabric/onelake/onelake-overview) |
-| Delta Lake | ACID + time travel sobre Parquet abierto | [→](https://docs.delta.io/latest/index.html) |
+```sql
+-- Reconstruir saldos al 31 de diciembre para auditoría CNBV
+SELECT * FROM lh_bronze_core.raw__core__cuentas
+TIMESTAMP AS OF '2025-12-31T23:59:59'
+```
+
+**Nomenclatura bancaria**
+```
+lh_raw_{sistema}          lh_bronze_{sistema}       lh_silver
+wh_gold_riesgo_credito    wh_gold_aml               wh_gold_retail
+wh_gold_regulatorio       sm_riesgo                 sm_retail
+```
 
 ---
 
 ### 🛡️ GOBERNAR
 
-**RBAC — Matriz de Acceso por Capa**
+**RBAC bancario — Matriz de Acceso**
 
-| Capa | DataOwner | DataEngineer | DataReader | MLEngineer |
-|------|-----------|--------------|------------|------------|
-| Raw Lakehouse | ✅ | ✅ | ❌ | ❌ |
-| Bronze | ✅ | ✅ | ❌ | ❌ |
-| Silver | ✅ | ✅ | ❌ | ✅ |
-| Gold | ✅ | ✅ | ✅ lectura | ✅ |
-| Semantic Model | ✅ | ✅ | ✅ lectura | ✅ |
-| Power BI Reports | ✅ | ✅ | ✅ | ✅ |
+| Capa | DataOwner | DataEngineer | DataReader | MLEngineer | Auditor |
+|------|-----------|--------------|------------|------------|---------|
+| Raw Lakehouse | ✅ | ✅ | ❌ | ❌ | ✅ lectura |
+| Bronze | ✅ | ✅ | ❌ | ❌ | ✅ lectura |
+| Silver (PII enmascarado) | ✅ | ✅ | ❌ | ✅ | ✅ lectura |
+| Gold | ✅ | ✅ | ✅ lectura | ✅ | ✅ lectura |
+| Zona PCI | ✅ PCI | ✅ PCI | ❌ | ❌ | ✅ PCI |
+| Semantic Model | ✅ | ✅ | ✅ lectura | ✅ | ✅ lectura |
 
-**Herramientas**
+> Agregar rol **Auditor** con acceso de solo lectura completo (incluido raw) pero sin capacidad de exportar. Exigido para auditorías internas y de reguladores.
 
-| Herramienta | Descripción | Docs |
-|-------------|-------------|------|
-| Microsoft Purview | Catálogo, linaje y clasificación integrado con Fabric | [→](https://learn.microsoft.com/es-es/purview/purview) |
-| Fabric One Access Control | Permisos unificados para todos los items de Fabric | [→](https://learn.microsoft.com/es-es/fabric/security/permission-model) |
-| dbt Tests + Contracts | Tests YAML como contratos ejecutables | [→](https://docs.getdbt.com/docs/build/data-tests) |
-| Azure Policy | Políticas de cumplimiento a escala para Azure | [→](https://learn.microsoft.com/es-es/azure/governance/policy/overview) |
+**Prácticas adicionales para banca**
+- **Datos sintéticos** para dev/stage: NUNCA usar datos reales de clientes fuera de producción
+- Sensitivity labels obligatorios: `PII` · `PCI` · `Confidencial` · `Regulatorio` · `Público`
+- Retención de audit logs mínimo **5 años** (exigencia CNBV)
+- Clasificación de datos PCI: número de tarjeta nunca completo fuera de la zona PCI
+- Row-Level Security en Gold y Semantic Models por región, sucursal o segmento de negocio
 
 ---
 
 ### 🔭 OBSERVABILIDAD
 
-**Herramientas**
+**Prácticas adicionales para banca**
+- SLAs regulatorios son hard deadlines: el reporte R01 a Banxico no puede llegar tarde
+- Alertas P0 para fallos en pipelines de AML — impacto regulatorio inmediato
+- Reconciliación diaria on-prem vs. Azure como job de observabilidad adicional
+- Linaje trazable end-to-end: desde el sistema fuente hasta el número en el reporte regulatorio
 
-| Herramienta | Descripción | Docs |
-|-------------|-------------|------|
-| Fabric Monitoring Hub | Centro unificado de monitoreo de todos los jobs Fabric | [→](https://learn.microsoft.com/es-es/fabric/admin/monitoring-hub) |
-| Elementary OSS | Observabilidad nativa de dbt: anomalías y freshness | [→](https://docs.elementary-data.com) |
-| Azure Monitor | Métricas, logs y alertas para toda la plataforma | [→](https://learn.microsoft.com/es-es/azure/azure-monitor/overview) |
-| dbt Artifacts & Docs | Metadatos de ejecución y docs auto-generados | [→](https://docs.getdbt.com/reference/artifacts/dbt-artifacts) |
+**Nomenclatura de alertas bancarias**
+```
+alert_P0_aml_pipeline_failure       ← impacto regulatorio inmediato
+alert_P1_core_freshness_exceeded    ← saldos con >4h sin actualizar
+alert_P1_recon_saldos_diferencia    ← diferencia on-prem vs Azure >0.001%
+alert_P2_ifrs9_run_delayed          ← modelo IFRS 9 no completó a tiempo
+alert_P3_dashboard_retail_stale     ← dashboard ejecutivo >2h desactualizado
+```
 
 ---
 
 ### 🤖 ORQUESTADOR
 
-**Herramientas**
-
-| Herramienta | Descripción | Docs |
-|-------------|-------------|------|
-| Azure Data Factory | Orquestador visual para ingesta E2E | [→](https://learn.microsoft.com/es-es/azure/data-factory/concepts-pipelines-activities) |
-| dbt Jobs on Fabric | Transformaciones directo sobre Fabric | [→](https://docs.getdbt.com/docs/deploy/job-settings) |
-| Apache Airflow | DAGs Python para orquestación compleja | [→](https://airflow.apache.org/docs/) |
-| Fabric Data Pipelines | Pipelines nativos integrados con OneLake | [→](https://learn.microsoft.com/es-es/fabric/data-factory/data-factory-overview) |
+**Prácticas adicionales para banca**
+- Ventanas de mantenimiento reguladas: en banca, los pipelines tienen ventanas fijas coordinadas con TI
+- Los jobs de cierre contable (fin de mes) tienen prioridad máxima — pausar todos los jobs no críticos
+- Runbooks documentados y aprobados por Auditoría para cada pipeline crítico
+- Recuperación ante desastres: tiempo máximo de recuperación (RTO) y pérdida máxima de datos (RPO) definidos por dominio
 
 ---
 
 ## 🔄 SCD — Dimensiones que Cambian Lentamente
 
-> Las **Slowly Changing Dimensions (SCD)** son el patrón para manejar cambios históricos en las tablas dimensionales (clientes, productos, empleados). Elegir el tipo correcto define cómo el Warehouse preserva o sobreescribe el historial.
+> Las **Slowly Changing Dimensions (SCD)** manejan cambios históricos en tablas dimensionales. En banca son especialmente críticas: el historial del segmento de un cliente, el cambio de tasa de un crédito o la reclasificación de riesgo deben preservarse para cálculos regulatorios e IFRS 9.
 
 ### Comparativa de Tipos SCD
 
-| Tipo | Nombre | Comportamiento | Cuándo usarlo | Ejemplo |
-|------|--------|----------------|---------------|---------|
-| **SCD 0** | Fija | No se actualiza jamás | Datos inmutables por definición | País de nacimiento |
-| **SCD 1** | Sobreescribir | Reemplaza el valor antiguo, sin historial | El pasado no importa | Corrección de errores tipográficos |
-| **SCD 2** | Historial completo | Nueva fila por cada cambio, con fechas de vigencia | Historial completo requerido | Segmento de cliente, precio de producto |
-| **SCD 3** | Valor anterior | Columna adicional con el valor previo | Solo interesa el cambio más reciente | Dirección actual vs. dirección anterior |
-| **SCD 4** | Tabla historial | Tabla separada para el historial | Dimensión muy grande con pocos cambios | Historial de precios |
-| **SCD 6** | Híbrido (1+2+3) | Combina tipos 1, 2 y 3 | Necesitas historial Y conveniencia de acceso actual | Análisis de cohortes complejos |
+| Tipo | Nombre | Comportamiento | Cuándo usarlo en Banca |
+|------|--------|----------------|------------------------|
+| **SCD 0** | Fija | No se actualiza jamás | Fecha de apertura de cuenta, número de crédito |
+| **SCD 1** | Sobreescribir | Reemplaza sin historial | Corrección de errores tipográficos en nombre |
+| **SCD 2** | Historial completo ⭐ | Nueva fila por cambio con valid_from/valid_to | Segmento de cliente, tasa de interés, staging IFRS 9 |
+| **SCD 3** | Valor anterior | Columna extra con valor previo | Dirección actual vs. anterior |
+| **SCD 4** | Tabla historial | Tabla separada para historial | Historial de tasas en catálogos masivos |
+| **SCD 6** | Híbrido (1+2+3) | Combina los tres tipos | Análisis de cohortes con estado histórico y actual |
 
-### SCD Tipo 2 — El más usado (implementación con dbt)
+### Árbol de Decisión
 
-Es el estándar en la mayoría de los Data Warehouses. Cada cambio genera una nueva fila, conservando el historial completo mediante columnas de vigencia.
-
-```sql
--- dim_cliente con SCD Tipo 2
--- Una fila por versión del cliente, con fechas de vigencia
-SELECT
-    {{ dbt_utils.generate_surrogate_key(['cliente_id', 'valid_from']) }} AS sk_cliente,
-    cliente_id,
-    nombre,
-    email,
-    segmento,
-    region,
-    valid_from,                            -- fecha desde la que aplica este registro
-    COALESCE(valid_to, '9999-12-31') AS valid_to, -- NULL = registro activo
-    is_current                             -- TRUE = versión vigente
-FROM slv_clientes
+```
+¿Necesitas historial?
+  ├── NO  → SCD 1 (sobreescribir)
+  └── SÍ → ¿El dato es inmutable?
+              ├── SÍ → SCD 0 (fija)
+              └── NO → ¿Cuánto historial?
+                         ├── Solo el valor anterior → SCD 3
+                         ├── Historial completo     → SCD 2 ⭐ (estándar bancario)
+                         └── Tabla enorme           → SCD 4 (tabla aparte)
 ```
 
-**Columnas clave en SCD 2:**
-
-| Columna | Tipo | Descripción |
-|---------|------|-------------|
-| `sk_{dimension}` | VARCHAR | Surrogate key: clave única por versión (no por entidad) |
-| `{dimension}_id` | VARCHAR | Clave de negocio original del sistema fuente |
-| `valid_from` | TIMESTAMP | Fecha de inicio de vigencia de esta versión |
-| `valid_to` | TIMESTAMP | Fecha de fin (NULL o 9999-12-31 = registro activo) |
-| `is_current` | BOOLEAN | TRUE si es la versión vigente en este momento |
-
-**Implementación con dbt snapshots:**
+### SCD Tipo 2 — Estándar en Banca (con dbt Snapshots)
 
 ```yaml
-# snapshots/snp_clientes.yml
-snapshots:
-  - name: snp_clientes
-    relation: source('crm', 'clientes')
-    config:
-      strategy: timestamp          # o 'check' para comparar columnas específicas
-      unique_key: cliente_id
-      updated_at: updated_at
-      invalidate_hard_deletes: true
-```
-
-```sql
--- snapshots/snp_clientes.sql
-{% snapshot snp_clientes %}
+# snapshots/snp_cliente_bancario.sql — SCD 2
+{% snapshot snp_cliente_bancario %}
   {{
     config(
-      target_schema='snapshots',
-      unique_key='cliente_id',
-      strategy='timestamp',
-      updated_at='updated_at',
+      target_schema = 'snapshots',
+      unique_key    = 'cliente_id',
+      strategy      = 'timestamp',
+      updated_at    = 'updated_at',
+      invalidate_hard_deletes = true,
     )
   }}
-  SELECT * FROM {{ source('crm', 'clientes') }}
+  SELECT * FROM {{ source('core_bancario', 'clientes') }}
 {% endsnapshot %}
 ```
 
-**Luego la dimensión consume el snapshot:**
-
 ```sql
--- models/gold/dimensions/dim_cliente.sql
+-- models/gold/dimensions/dim_cliente_bancario.sql
 SELECT
     {{ dbt_utils.generate_surrogate_key(['cliente_id', 'dbt_valid_from']) }} AS sk_cliente,
     cliente_id,
     nombre,
-    segmento,
+    segmento,                 -- SCD 2: qué segmento tenía cuando ocurrió la transacción
+    staging_ifrs9,            -- SCD 2: Stage 1/2/3 del cliente en cada momento
     region,
-    dbt_valid_from   AS valid_from,
-    dbt_valid_to     AS valid_to,
+    dbt_valid_from  AS valid_from,
+    dbt_valid_to    AS valid_to,
     (dbt_valid_to IS NULL) AS is_current
-FROM {{ ref('snp_clientes') }}
+FROM {{ ref('snp_cliente_bancario') }}
 ```
 
-### SCD Tipo 1 — Sobreescribir (el más simple)
+> **Por qué SCD 2 es crítico en IFRS 9**: el staging (Stage 1 → Stage 2 → Stage 3) de un crédito cambia a lo largo del tiempo. Para calcular la Pérdida Esperada (ECL), necesitas saber en qué stage estaba el cliente *cuando ocurrió* cada transacción, no solo el stage actual.
 
-```sql
--- models/gold/dimensions/dim_producto.sql
--- SCD 1: siempre refleja el estado actual, sin historial
-SELECT
-    producto_id,
-    nombre,
-    categoria,      -- si cambia, simplemente se actualiza
-    precio_actual   -- idem
-FROM {{ ref('slv_productos') }}
-```
+### Columnas Clave SCD 2
 
-### Elegir el Tipo Correcto
-
-```
-¿Necesitas historial?
-    ├── NO → SCD 1 (sobreescribir)
-    └── SÍ → ¿Es inmutable el dato?
-              ├── SÍ → SCD 0 (fija)
-              └── NO → ¿Cuántos cambios históricos?
-                        ├── Solo el anterior → SCD 3
-                        ├── Historial completo → SCD 2 ← el más común
-                        └── Dimensión enorme → SCD 4 (tabla historial)
-```
+| Columna | Tipo | Descripción |
+|---------|------|-------------|
+| `sk_{dimension}` | VARCHAR | Surrogate key: única por versión, no por entidad |
+| `{dimension}_id` | VARCHAR | Clave de negocio del sistema fuente |
+| `valid_from` | TIMESTAMP | Inicio de vigencia de esta versión |
+| `valid_to` | TIMESTAMP | Fin de vigencia (NULL = registro activo) |
+| `is_current` | BOOLEAN | TRUE = versión vigente ahora |
 
 ### Recursos SCD
 
 | Recurso | Descripción |
 |---------|-------------|
-| [dbt Snapshots](https://docs.getdbt.com/docs/build/snapshots) | Implementación nativa de SCD 2 con dbt |
-| [dbt_utils.generate_surrogate_key](https://github.com/dbt-labs/dbt-utils#generate_surrogate_key-source) | Macro para generar surrogate keys |
-| [Kimball — The Data Warehouse Toolkit](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimensions/) | Referencia original de SCDs |
+| [dbt Snapshots](https://docs.getdbt.com/docs/build/snapshots) | SCD 2 nativo con dbt |
+| [dbt_utils.generate_surrogate_key](https://github.com/dbt-labs/dbt-utils#generate_surrogate_key-source) | Macro para surrogate keys |
+| [Kimball — SCD Techniques](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimensions/) | Referencia original de SCDs |
 
 ---
 
 ## 📖 Glosario de Términos y Siglas
 
-> Todos los acrónimos y conceptos técnicos de este stack, con su expansión y referencia oficial.
-
 | Sigla / Término | Expansión | Descripción | Docs |
 |-----------------|-----------|-------------|------|
 | **ACID** | Atomicity, Consistency, Isolation, Durability | Las 4 propiedades que garantizan transacciones confiables. Delta Lake implementa ACID sobre Parquet. | [→](https://docs.delta.io/latest/concurrency-control.html) |
-| **ADF** | Azure Data Factory | Servicio de orquestación e integración de datos de Azure. +90 conectores nativos. | [→](https://learn.microsoft.com/es-es/azure/data-factory/introduction) |
-| **ADLS Gen2** | Azure Data Lake Storage Generation 2 | Almacenamiento jerárquico de Azure optimizado para analítica. Base física de OneLake. | [→](https://learn.microsoft.com/es-es/azure/storage/blobs/data-lake-storage-introduction) |
-| **API** | Application Programming Interface | Interfaz para comunicar sistemas. Se usa para consumir la capa semántica externamente. | [→](https://learn.microsoft.com/es-es/azure/architecture/best-practices/api-design) |
-| **BI** | Business Intelligence | Tecnologías para analizar datos de negocio. Power BI es la herramienta principal de este stack. | [→](https://learn.microsoft.com/es-es/power-bi/fundamentals/power-bi-overview) |
+| **ADF** | Azure Data Factory | Orquestación e integración de datos de Azure. +90 conectores nativos. | [→](https://learn.microsoft.com/es-es/azure/data-factory/introduction) |
+| **ADLS Gen2** | Azure Data Lake Storage Gen 2 | Almacenamiento jerárquico de Azure. Base física de OneLake. | [→](https://learn.microsoft.com/es-es/azure/storage/blobs/data-lake-storage-introduction) |
+| **ALM** | Asset Liability Management | Gestión del balance bancario: mide el gap entre activos y pasivos por plazo y tasa. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/) |
+| **AML** | Anti-Money Laundering | Prevención de lavado de dinero. Exige monitoreo transaccional, alertas y reporte a la UIF. | [→](https://www.fatf-gafi.org/) |
+| **API** | Application Programming Interface | Interfaz para comunicar sistemas. Se usa para exponer la capa semántica externamente. | [→](https://learn.microsoft.com/es-es/azure/architecture/best-practices/api-design) |
+| **BI** | Business Intelligence | Tecnologías para analizar datos de negocio. Power BI es la herramienta principal del stack. | [→](https://learn.microsoft.com/es-es/power-bi/fundamentals/power-bi-overview) |
 | **CAP** | Consistency, Availability, Partition Tolerance | Teorema: un sistema distribuido solo garantiza 2 de 3 propiedades. Explica OLTP vs OLAP. | [→](https://www.ibm.com/topics/cap-theorem) |
-| **CDC** | Change Data Capture | Captura solo los cambios (inserciones, actualizaciones, eliminaciones) en el origen. Reduce carga hasta un 90%. | [→](https://learn.microsoft.com/es-es/azure/data-factory/concepts-change-data-capture) |
-| **CI/CD** | Continuous Integration / Continuous Delivery | Automatiza integración y despliegue de código. En dbt: cada PR ejecuta `dbt test` antes de merge. | [→](https://docs.getdbt.com/docs/deploy/continuous-integration) |
-| **DaaF** | Data as a Feature | Los datos son features de ML, preparados con la misma rigurosidad que cualquier feature de software. | [→](https://learn.microsoft.com/es-es/azure/machine-learning/concept-data) |
-| **DaaP** | Data as a Product | Los datasets son tratados como productos: con propietario, docs, tests, SLA y usuarios. | [→](https://martinfowler.com/articles/data-mesh-principles.html) |
-| **DAG** | Directed Acyclic Graph | Grafo de dependencias entre tareas. En Airflow define el orden de ejecución. En dbt es el linaje. | [→](https://airflow.apache.org/docs/apache-airflow/stable/concepts/dags.html) |
-| **dbt** | Data Build Tool | Transforma SQL como código: versionado, testeado, documentado y desplegado con CI/CD. | [→](https://docs.getdbt.com/docs/introduction) |
-| **Delta Lake** | Delta Lake (formato abierto) | Añade ACID, time travel y schema enforcement sobre Parquet. Formato base de OneLake y Fabric. | [→](https://docs.delta.io/latest/index.html) |
-| **DirectLake** | DirectLake (modo Power BI en Fabric) | Power BI consulta directamente Delta en OneLake sin importar ni copiar datos. | [→](https://learn.microsoft.com/es-es/fabric/fundamentals/direct-lake-overview) |
-| **DW** | Data Warehouse | Base de datos OLAP para consultas analíticas. En este stack: Fabric Warehouse para la capa Gold. | [→](https://learn.microsoft.com/es-es/fabric/data-warehouse/data-warehousing) |
-| **ELT** | Extract, Load, Transform | Cargar primero al almacén cloud y transformar después dentro del motor. Opuesto a ETL. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/etl) |
-| **ETL** | Extract, Transform, Load | Patrón tradicional: transformar antes de cargar. Este stack usa ELT en su lugar. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/etl) |
-| **F-SKU** | Fabric Stock Keeping Unit | Unidad de capacidad de cómputo en Microsoft Fabric, medida en CUs. Escalable por demanda real. | [→](https://learn.microsoft.com/es-es/fabric/enterprise/licenses) |
+| **CDC** | Change Data Capture | Captura solo cambios en el origen. Reduce carga hasta 90% vs carga completa. | [→](https://learn.microsoft.com/es-es/azure/data-factory/concepts-change-data-capture) |
+| **CI/CD** | Continuous Integration / Continuous Delivery | Automatiza integración y despliegue. En dbt: `dbt test` en cada PR antes de merge. | [→](https://docs.getdbt.com/docs/deploy/continuous-integration) |
+| **CNBV** | Comisión Nacional Bancaria y de Valores | Regulador bancario de México. Exige reportes R01-R11 periódicos. | [→](https://www.cnbv.gob.mx/) |
+| **CRS** | Common Reporting Standard | Estándar OCDE de intercambio automático de información fiscal entre países. | [→](https://www.oecd.org/tax/automatic-exchange/) |
+| **DaaF** | Data as a Feature | Los datos son features de ML, preparados con la misma rigurosidad que software. | [→](https://learn.microsoft.com/es-es/azure/machine-learning/concept-data) |
+| **DaaP** | Data as a Product | Los datasets son productos con propietario, docs, tests, SLA y usuarios. | [→](https://martinfowler.com/articles/data-mesh-principles.html) |
+| **DAG** | Directed Acyclic Graph | Grafo de dependencias entre tareas. En Airflow define el orden del pipeline. | [→](https://airflow.apache.org/docs/apache-airflow/stable/concepts/dags.html) |
+| **dbt** | Data Build Tool | Transforma SQL como código: versionado, testeado, documentado con CI/CD. | [→](https://docs.getdbt.com/docs/introduction) |
+| **Delta Lake** | Delta Lake (formato abierto) | ACID, time travel y schema enforcement sobre Parquet. Formato base de OneLake. | [→](https://docs.delta.io/latest/index.html) |
+| **DirectLake** | DirectLake (modo Power BI en Fabric) | Power BI lee Delta en OneLake directamente. Sin copia ni lentitud de DirectQuery. | [→](https://learn.microsoft.com/es-es/fabric/fundamentals/direct-lake-overview) |
+| **DW** | Data Warehouse | Base de datos OLAP para análisis. En este stack: Fabric Warehouse para Gold. | [→](https://learn.microsoft.com/es-es/fabric/data-warehouse/data-warehousing) |
+| **EAD** | Exposure At Default | Exposición del banco al momento en que un deudor entra en default. Componente de IFRS 9. | [→](https://www.bis.org/bcbs/publ/d424.htm) |
+| **ECL** | Expected Credit Loss | Pérdida Esperada. Métrica central de IFRS 9: ECL = PD × LGD × EAD. | [→](https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9-financial-instruments/) |
+| **ELT** | Extract, Load, Transform | Cargar primero al cloud en crudo y transformar después. Opuesto a ETL. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/etl) |
+| **ETL** | Extract, Transform, Load | Transformar antes de cargar. Este stack usa ELT en su lugar. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/etl) |
+| **ExpressRoute** | Azure ExpressRoute | Conexión privada dedicada empresa ↔ Azure sin pasar por internet público. | [→](https://learn.microsoft.com/es-es/azure/expressroute/expressroute-introduction) |
+| **F-SKU** | Fabric Stock Keeping Unit | Unidad de capacidad de cómputo en Fabric, medida en CUs. Escalable por dominio. | [→](https://learn.microsoft.com/es-es/fabric/enterprise/licenses) |
+| **FATCA** | Foreign Account Tax Compliance Act | Ley de EEUU que exige a bancos extranjeros reportar cuentas de ciudadanos americanos. | [→](https://www.irs.gov/businesses/corporations/foreign-account-tax-compliance-act-fatca) |
+| **FRTB** | Fundamental Review of the Trading Book | Marco Basilea IV para riesgo de mercado. Exige cálculo VaR, ES y sensibilidades. | [→](https://www.bis.org/bcbs/publ/d457.htm) |
 | **GDPR** | General Data Protection Regulation | Regulación EU sobre datos personales. Aplica si se procesan datos de ciudadanos europeos. | [→](https://gdpr.eu/) |
-| **KPI** | Key Performance Indicator | Métrica cuantificable de rendimiento de negocio. Se define una vez en la capa semántica. | [→](https://docs.getdbt.com/docs/build/metrics-overview) |
-| **Medallion** | Arquitectura Medallion (Bronze/Silver/Gold) | Patrón de tres capas: Bronze (crudo), Silver (limpio), Gold (agregado para consumo). | [→](https://learn.microsoft.com/es-es/azure/databricks/lakehouse/medallion) |
-| **ML** | Machine Learning | Sistemas que aprenden de datos. Azure Machine Learning es la plataforma MLOps del stack. | [→](https://learn.microsoft.com/es-es/azure/machine-learning/overview-what-is-azure-machine-learning) |
-| **MLOps** | Machine Learning Operations | Prácticas DevOps aplicadas al ciclo de vida de modelos ML: entrena, registra, despliega, monitorea. | [→](https://learn.microsoft.com/es-es/azure/machine-learning/concept-model-management-and-deployment) |
-| **MPP** | Massively Parallel Processing | Arquitectura que distribuye consultas entre nodos para procesarlas en paralelo a escala de petabytes. | [→](https://learn.microsoft.com/es-es/azure/synapse-analytics/sql-data-warehouse/massively-parallel-processing-mpp-architecture) |
-| **OLAP** | Online Analytical Processing | Bases de datos para análisis de grandes volúmenes históricos. Fabric Warehouse y Lakehouse son OLAP. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-analytical-processing) |
-| **OLTP** | Online Transaction Processing | Bases de datos operacionales (CRM, ERP). Optimizadas para escrituras rápidas, no para análisis. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-transaction-processing) |
-| **OneLake** | OneLake (Microsoft Fabric) | Único data lake lógico de Fabric. Basado en ADLS Gen2, con formato Delta/Parquet abierto. | [→](https://learn.microsoft.com/es-es/fabric/onelake/onelake-overview) |
-| **OSS** | Open Source Software | Código fuente público. En este stack: dbt Core, Airbyte, Elementary, Airflow. | [→](https://opensource.org/osd) |
-| **Parquet** | Apache Parquet (formato columnar) | Formato columnar optimizado para análisis. Base de Delta Lake. Más rápido y compacto que CSV. | [→](https://parquet.apache.org/docs/) |
-| **PII** | Personally Identifiable Information | Datos que identifican a una persona: nombre, email, CURP. Requiere clasificación y protección especial. | [→](https://learn.microsoft.com/es-es/purview/sensitivity-labels) |
-| **PR** | Pull Request | Mecanismo Git para proponer cambios. En dbt, todo cambio a Gold o métricas requiere PR con revisión. | [→](https://docs.github.com/es/pull-requests) |
-| **RAG** | Retrieval Augmented Generation | IA que combina LLM con búsqueda sobre datos propios para respuestas contextualizadas. | [→](https://learn.microsoft.com/es-es/azure/search/retrieval-augmented-generation-overview) |
-| **RBAC** | Role-Based Access Control | Permisos asignados a roles, no a personas. Simplifica gestión de acceso y aplica mínimo privilegio. | [→](https://learn.microsoft.com/es-es/fabric/security/permission-model) |
+| **IFRS 9** | International Financial Reporting Standard 9 | Norma contable: provisiones por pérdida esperada (ECL), staging de créditos (Stage 1/2/3). | [→](https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9-financial-instruments/) |
+| **KPI** | Key Performance Indicator | Métrica de rendimiento de negocio. Se define una vez en la capa semántica. | [→](https://docs.getdbt.com/docs/build/metrics-overview) |
+| **KYC** | Know Your Customer | Proceso de identificación y verificación de la identidad del cliente. Obligatorio en banca. | [→](https://www.fatf-gafi.org/en/topics/fatf-recommendations.html) |
+| **LCR** | Liquidity Coverage Ratio | Ratio de cobertura de liquidez. Exige Basilea III: activos líquidos / salidas 30 días ≥ 100%. | [→](https://www.bis.org/publ/bcbs238.htm) |
+| **LGD** | Loss Given Default | Pérdida dado el incumplimiento, como % del EAD. Componente de IFRS 9 y Basilea. | [→](https://www.bis.org/bcbs/publ/d424.htm) |
+| **LOS** | Loan Origination System | Sistema de originación de créditos: solicitudes, evaluación, aprobación y desembolso. | — |
+| **Medallion** | Arquitectura Medallion | Bronze (crudo), Silver (limpio), Gold (agregado para consumo). Estándar en Fabric y dbt. | [→](https://learn.microsoft.com/es-es/azure/databricks/lakehouse/medallion) |
+| **ML** | Machine Learning | Sistemas que aprenden de datos. Azure ML es la plataforma MLOps del stack. | [→](https://learn.microsoft.com/es-es/azure/machine-learning/overview-what-is-azure-machine-learning) |
+| **MLOps** | Machine Learning Operations | DevOps aplicado al ciclo de vida de modelos ML: entrena, registra, despliega, monitorea. | [→](https://learn.microsoft.com/es-es/azure/machine-learning/concept-model-management-and-deployment) |
+| **MPP** | Massively Parallel Processing | Arquitectura que distribuye consultas entre nodos para procesarlas en paralelo. | [→](https://learn.microsoft.com/es-es/azure/synapse-analytics/sql-data-warehouse/massively-parallel-processing-mpp-architecture) |
+| **MRM** | Model Risk Management | Proceso de validación independiente de modelos estadísticos/ML. Exigido por reguladores bancarios. | [→](https://www.bis.org/publ/work683.htm) |
+| **NPL** | Non-Performing Loan | Crédito en mora. Ratio NPL = cartera vencida / cartera total. KPI regulatorio clave. | — |
+| **NSFR** | Net Stable Funding Ratio | Ratio de financiación estable neta. Basilea III: fuentes estables / activos requeridos ≥ 100%. | [→](https://www.bis.org/bcbs/publ/d295.htm) |
+| **OLAP** | Online Analytical Processing | Bases de datos para análisis masivo histórico. Fabric Warehouse y Lakehouse son OLAP. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-analytical-processing) |
+| **OLTP** | Online Transaction Processing | Bases de datos operacionales (CRM, ERP, core bancario). No aptas para análisis directo. | [→](https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-transaction-processing) |
+| **OneLake** | OneLake (Microsoft Fabric) | Único data lake lógico de Fabric. Base: ADLS Gen2, formato Delta/Parquet. | [→](https://learn.microsoft.com/es-es/fabric/onelake/onelake-overview) |
+| **OSS** | Open Source Software | Código fuente público. En este stack: dbt Core, Airbyte, Debezium, Elementary, Airflow. | [→](https://opensource.org/osd) |
+| **Parquet** | Apache Parquet | Formato columnar optimizado para análisis. Base de Delta Lake. | [→](https://parquet.apache.org/docs/) |
+| **PCI DSS** | Payment Card Industry Data Security Standard | Estándar de seguridad para datos de tarjetas. Exige aislamiento, cifrado y controles estrictos. | [→](https://www.pcisecuritystandards.org/) |
+| **PD** | Probability of Default | Probabilidad de incumplimiento de un deudor. Componente central de IFRS 9 y Basilea. | [→](https://www.bis.org/bcbs/publ/d424.htm) |
+| **PII** | Personally Identifiable Information | Datos que identifican a una persona. Requiere clasificación y protección especial. | [→](https://learn.microsoft.com/es-es/purview/sensitivity-labels) |
+| **PR** | Pull Request | Propuesta de cambio de código en Git. En dbt, obligatorio para cambios en Gold y métricas. | [→](https://docs.github.com/es/pull-requests) |
+| **RAG** | Retrieval Augmented Generation | LLM + búsqueda sobre datos propios para respuestas contextualizadas. | [→](https://learn.microsoft.com/es-es/azure/search/retrieval-augmented-generation-overview) |
+| **RBAC** | Role-Based Access Control | Permisos asignados a roles. Simplifica gestión de acceso y aplica mínimo privilegio. | [→](https://learn.microsoft.com/es-es/fabric/security/permission-model) |
 | **REST** | Representational State Transfer | Estilo arquitectónico para APIs web. La capa semántica se expone vía API REST. | [→](https://learn.microsoft.com/es-es/azure/architecture/best-practices/api-design) |
-| **SCD** | Slowly Changing Dimension | Patrón para manejar cambios históricos en dimensiones (clientes, productos). Ver sección SCD. | [→](https://docs.getdbt.com/docs/build/snapshots) |
-| **Schema-on-Read** | Schema-on-Read (Esquema en Lectura) | Datos almacenados sin estructura impuesta; el esquema se aplica al leerlos. Usado en RAW/Bronze. | [→](https://docs.delta.io/latest/schema-validation.html) |
-| **SLA** | Service Level Agreement | Compromiso de disponibilidad, frescura o calidad de un dato. Se monitorea con Elementary y Azure Monitor. | [→](https://learn.microsoft.com/es-es/azure/azure-monitor/alerts/alerts-overview) |
-| **SOC 2** | Service Organization Control 2 | Estándar de auditoría de seguridad cloud. Fabric y Azure tienen certificación SOC 2 Tipo II. | [→](https://learn.microsoft.com/es-es/azure/compliance/offerings/offering-soc-2) |
-| **SQL** | Structured Query Language | Lenguaje estándar para bases de datos relacionales. dbt usa SQL para todos los modelos. | [→](https://docs.getdbt.com/docs/core/connect-data-platform/about-core-connections) |
-| **Zero-copy** | Zero-copy (clonación sin duplicar datos) | Shortcut/referencia a datos en lugar de duplicarlos. OneLake usa zero-copy entre servicios. | [→](https://learn.microsoft.com/es-es/fabric/onelake/onelake-shortcuts) |
+| **RLS** | Row-Level Security | Seguridad a nivel de fila: cada usuario solo ve las filas a las que tiene acceso. | [→](https://learn.microsoft.com/es-es/fabric/security/service-admin-row-level-security) |
+| **RPO** | Recovery Point Objective | Pérdida máxima de datos aceptable ante un desastre. Ej: RPO = 1h significa perder máx. 1h de datos. | [→](https://learn.microsoft.com/es-es/azure/reliability/disaster-recovery-overview) |
+| **RTO** | Recovery Time Objective | Tiempo máximo para restaurar el servicio tras un desastre. Ej: RTO = 4h. | [→](https://learn.microsoft.com/es-es/azure/reliability/disaster-recovery-overview) |
+| **SCD** | Slowly Changing Dimension | Patrón para manejar cambios históricos en dimensiones. SCD 2 es el estándar bancario. | [→](https://docs.getdbt.com/docs/build/snapshots) |
+| **Schema-on-Read** | Schema-on-Read | Datos almacenados sin estructura; el esquema se aplica al leerlos. Usado en RAW/Bronze. | [→](https://docs.delta.io/latest/schema-validation.html) |
+| **SHIR** | Self-Hosted Integration Runtime | Agente ADF instalado on-prem para conectar sistemas internos del banco con Azure. | [→](https://learn.microsoft.com/es-es/azure/data-factory/create-self-hosted-integration-runtime) |
+| **SLA** | Service Level Agreement | Compromiso de disponibilidad o frescura del dato. Se monitorea con Elementary y Azure Monitor. | [→](https://learn.microsoft.com/es-es/azure/azure-monitor/alerts/alerts-overview) |
+| **SOC 2** | Service Organization Control 2 | Auditoría de seguridad cloud. Fabric y Azure tienen certificación SOC 2 Tipo II. | [→](https://learn.microsoft.com/es-es/azure/compliance/offerings/offering-soc-2) |
+| **SQL** | Structured Query Language | Lenguaje estándar para bases de datos. dbt usa SQL para todos los modelos. | [→](https://docs.getdbt.com/docs/core/connect-data-platform/about-core-connections) |
+| **UIF** | Unidad de Inteligencia Financiera | Organismo mexicano receptor de reportes de operaciones sospechosas (AML). | [→](https://www.uif.hacienda.gob.mx/) |
+| **VaR** | Value at Risk | Pérdida máxima esperada en un portafolio con un nivel de confianza dado. Riesgo de mercado. | [→](https://www.bis.org/publ/work347.htm) |
+| **Zero-copy** | Zero-copy | Referencia a datos en lugar de duplicarlos. OneLake usa zero-copy entre servicios. | [→](https://learn.microsoft.com/es-es/fabric/onelake/onelake-shortcuts) |
 
 ---
 
@@ -828,59 +967,69 @@ FROM {{ ref('slv_productos') }}
 
 | Recurso | Tipo | Descripción |
 |---------|------|-------------|
-| [The Data Warehouse Toolkit — Kimball](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/) | 📘 Libro | La referencia canónica de modelado dimensional: hechos, dimensiones y SCDs |
+| [The Data Warehouse Toolkit — Kimball](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/) | 📘 Libro | Referencia canónica de modelado dimensional: hechos, dimensiones, SCDs |
 | [Data Mesh Principles — Martin Fowler](https://martinfowler.com/articles/data-mesh-principles.html) | 📄 Artículo | Principios fundacionales de DaaP y Data Mesh |
-| [Fundamentals of Data Engineering — O'Reilly](https://www.oreilly.com/library/view/fundamentals-of-data/9781098108298/) | 📘 Libro | Referencia completa del ciclo de vida de ingeniería de datos |
+| [Fundamentals of Data Engineering — O'Reilly](https://www.oreilly.com/library/view/fundamentals-of-data/9781098108298/) | 📘 Libro | Ciclo de vida completo de ingeniería de datos |
 | [The Analytics Engineering Guide — dbt Labs](https://www.getdbt.com/analytics-engineering/) | 📄 Guía | Qué es Analytics Engineering y cómo dbt lo implementa |
+| [Azure Data Architecture Guide](https://learn.microsoft.com/es-es/azure/architecture/data-guide/) | 📄 Guía | Patrones de arquitectura de datos en Azure (ELT, Lambda, Kappa) |
+| [Azure Well-Architected Framework](https://learn.microsoft.com/es-es/azure/well-architected/) | 📄 Guía | Pilares de excelencia: fiabilidad, seguridad, eficiencia, costos |
 
 ### dbt
 
 | Recurso | Descripción |
 |---------|-------------|
-| [dbt Learn (cursos oficiales)](https://learn.getdbt.com/) | Cursos gratuitos de dbt Labs: fundamentos, Jinja, tests, Mesh |
-| [dbt Best Practices](https://docs.getdbt.com/best-practices) | Guías oficiales: estructura de proyectos, Medallion, naming |
-| [dbt Discourse (comunidad)](https://discourse.getdbt.com/) | Foro de la comunidad dbt: preguntas, patrones y casos de uso |
-| [dbt Slack](https://www.getdbt.com/community/join-the-community/) | Comunidad activa en Slack: +50.000 miembros |
-| [dbt Snapshots (SCD 2)](https://docs.getdbt.com/docs/build/snapshots) | Implementación oficial de SCD 2 con dbt |
-| [dbt MetricFlow](https://docs.getdbt.com/docs/build/about-metricflow) | Motor de métricas semánticas en dbt |
+| [dbt Learn — cursos oficiales gratuitos](https://learn.getdbt.com/) | Fundamentos, Jinja, tests, Semantic Layer, Mesh |
+| [dbt Best Practices](https://docs.getdbt.com/best-practices) | Estructura de proyectos, Medallion, naming oficial |
+| [dbt Source Freshness](https://docs.getdbt.com/docs/build/sources#snapshotting-source-data-freshness) | Configurar y ejecutar validación de frescura de fuentes |
+| [dbt Snapshots — SCD 2](https://docs.getdbt.com/docs/build/snapshots) | Implementación nativa de SCD 2 con dbt |
+| [dbt MetricFlow](https://docs.getdbt.com/docs/build/about-metricflow) | Motor de métricas semánticas |
+| [dbt Discourse — comunidad](https://discourse.getdbt.com/) | Foro con +100k preguntas y respuestas |
+| [dbt Slack](https://www.getdbt.com/community/join-the-community/) | +50,000 miembros activos |
 
 ### Microsoft Fabric
 
 | Recurso | Descripción |
 |---------|-------------|
-| [Microsoft Fabric Learn](https://learn.microsoft.com/es-es/training/browse/?products=fabric) | Módulos de aprendizaje oficial gratuitos de Fabric |
-| [Fabric Community](https://community.fabric.microsoft.com/) | Foro oficial de la comunidad de Microsoft Fabric |
-| [Fabric Updates Blog](https://blog.fabric.microsoft.com/) | Blog oficial con novedades y actualizaciones del producto |
-| [Fabric Notes (Guy in a Cube)](https://www.youtube.com/@GuyInACube) | Canal de YouTube con tutoriales prácticos de Fabric y Power BI |
-| [Lakehouse vs Warehouse en Fabric](https://learn.microsoft.com/es-es/fabric/data-engineering/lakehouse-vs-data-warehouse) | Cuándo usar Lakehouse y cuándo usar Warehouse |
-| [Fabric Capacity Planning](https://learn.microsoft.com/es-es/fabric/enterprise/plan-capacity) | Guía para estimar y planificar F-SKUs por carga de trabajo |
+| [Fabric Learn — módulos oficiales](https://learn.microsoft.com/es-es/training/browse/?products=fabric) | Rutas de aprendizaje gratuitas y certificaciones |
+| [Lakehouse vs. Warehouse en Fabric](https://learn.microsoft.com/es-es/fabric/data-engineering/lakehouse-vs-data-warehouse) | Cuándo usar cada uno — decisión arquitectónica clave |
+| [Fabric Capacity Planning](https://learn.microsoft.com/es-es/fabric/enterprise/plan-capacity) | Estimar y planificar F-SKUs por dominio y carga |
+| [Fabric Private Links (seguridad)](https://learn.microsoft.com/es-es/fabric/security/security-private-links-overview) | Aislamiento de red para entornos bancarios |
+| [Fabric Git Integration](https://learn.microsoft.com/es-es/fabric/cicd/git-integration/intro-to-git-integration) | CI/CD nativo en Fabric con Git |
+| [Fabric Community](https://community.fabric.microsoft.com/) | Foro oficial de la comunidad |
+| [Guy in a Cube — YouTube](https://www.youtube.com/@GuyInACube) | Tutoriales prácticos de Fabric y Power BI |
 
-### Azure & DevOps
-
-| Recurso | Descripción |
-|---------|-------------|
-| [Azure Data Architecture Guide](https://learn.microsoft.com/es-es/azure/architecture/data-guide/) | Patrones de arquitectura de datos en Azure (ELT, Lambda, Kappa) |
-| [Azure Well-Architected Framework](https://learn.microsoft.com/es-es/azure/well-architected/) | Pilares de excelencia: fiabilidad, seguridad, eficiencia, costos |
-| [GitHub Actions para dbt CI/CD](https://docs.getdbt.com/docs/deploy/continuous-integration) | Cómo configurar CI/CD de dbt con GitHub Actions |
-| [Fabric Git Integration](https://learn.microsoft.com/es-es/fabric/cicd/git-integration/intro-to-git-integration) | Control de versiones Git nativo en Microsoft Fabric |
-
-### Modelado Dimensional & SCDs
+### Migración On-Premise → Azure
 
 | Recurso | Descripción |
 |---------|-------------|
-| [Kimball Group — SCD Techniques](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimensions/) | Referencia original de todos los tipos de SCD |
-| [dbt Snapshots Guide](https://docs.getdbt.com/docs/build/snapshots) | SCD 2 nativo con dbt: strategies timestamp y check |
-| [dbt_utils — surrogate_key](https://github.com/dbt-labs/dbt-utils#generate_surrogate_key-source) | Macro para generar surrogate keys consistentes en dimensiones |
-| [Star Schema vs Data Vault](https://www.databricks.com/glossary/data-vault) | Cuándo usar estrella vs Data Vault para el Gold layer |
+| [Azure Migrate — guía general](https://learn.microsoft.com/es-es/azure/migrate/migrate-services-overview) | Punto de entrada para migraciones a Azure |
+| [ADF Self-Hosted IR](https://learn.microsoft.com/es-es/azure/data-factory/create-self-hosted-integration-runtime) | Agente para conectar on-prem con Azure de forma segura |
+| [Azure ExpressRoute](https://learn.microsoft.com/es-es/azure/expressroute/expressroute-introduction) | Conexión privada dedicada — obligatoria para banca en prod |
+| [Azure Database Migration Service](https://learn.microsoft.com/es-es/azure/dms/dms-overview) | Migración de SQL Server, Oracle on-prem a Azure |
+| [Debezium — CDC OSS](https://debezium.io/documentation/reference/stable/) | CDC desde PostgreSQL, Oracle, SQL Server, MySQL |
 
-### Gobernanza & Calidad de Datos
+### Banca & Regulatorio
 
 | Recurso | Descripción |
 |---------|-------------|
-| [Microsoft Purview Docs](https://learn.microsoft.com/es-es/purview/) | Documentación completa de catálogo, linaje y clasificación |
-| [DAMA-DMBOK (Data Management)](https://www.dama.org/cpages/body-of-knowledge) | Cuerpo de conocimiento estándar de gestión de datos |
-| [Great Expectations Docs](https://docs.greatexpectations.io/) | Framework OSS para validación de calidad de datos |
-| [Monte Carlo — Data Observability](https://www.montecarlodata.com/blog-what-is-data-observability/) | Qué es la observabilidad de datos y sus 5 pilares |
+| [BIS — Basilea III/IV Framework](https://www.bis.org/bcbs/basel3.htm) | Marco regulatorio de capital bancario (BIS es la fuente oficial) |
+| [IFRS 9 — IASB](https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9-financial-instruments/) | Norma IFRS 9: instrumentos financieros y pérdida esperada |
+| [FATF — Estándares AML](https://www.fatf-gafi.org/en/topics/fatf-recommendations.html) | Estándares internacionales contra lavado de dinero |
+| [PCI DSS v4.0](https://www.pcisecuritystandards.org/document_library/) | Requisitos de seguridad para datos de tarjetas |
+| [CNBV — Regulación](https://www.cnbv.gob.mx/Regulacion) | Marco regulatorio bancario mexicano |
+| [Banxico — Regulación](https://www.banxico.org.mx/marco-normativo/) | Regulación del Banco de México |
+| [Azure Compliance — Financial Services](https://learn.microsoft.com/es-es/azure/compliance/offerings/offering-ffiec-us) | Certificaciones de cumplimiento de Azure para servicios financieros |
+| [Microsoft Sentinel — SIEM](https://learn.microsoft.com/es-es/azure/sentinel/overview) | Seguridad y monitoreo de amenazas cloud-native |
+
+### Modelado Dimensional & SCD
+
+| Recurso | Descripción |
+|---------|-------------|
+| [Kimball — SCD Techniques](https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimensions/) | Referencia original de todos los tipos de SCD |
+| [dbt_utils — surrogate_key](https://github.com/dbt-labs/dbt-utils#generate_surrogate_key-source) | Macro para generar surrogate keys consistentes |
+| [Star Schema vs. Data Vault](https://www.databricks.com/glossary/data-vault) | Cuándo usar estrella vs Data Vault para el Gold layer |
+| [Great Expectations OSS](https://docs.greatexpectations.io/) | Framework OSS para validación de calidad de datos |
+| [Monte Carlo — Data Observability](https://www.montecarlodata.com/blog-what-is-data-observability/) | Los 5 pilares de la observabilidad de datos |
 
 ---
 
@@ -897,13 +1046,14 @@ npm run deploy     # → GitHub Pages
 Cada `git push` a `main` despliega automáticamente vía GitHub Actions.
 
 ### Estructura del proyecto
+
 ```
 src/
 ├── data/
 │   ├── blockData.js      ← contenido de capas + dbt + Fabric
 │   ├── partsConfig.js    ← partes + roadmap con hitos y entregables
 │   ├── objectives.js     ← principios DaaP
-│   └── glossary.js       ← glosario de términos y siglas
+│   └── glossary.js       ← glosario de términos y siglas (incluye SCD)
 ├── components/
 │   ├── Header.jsx
 │   ├── NavParts.jsx
@@ -912,7 +1062,7 @@ src/
 │   ├── ProtagonistDetail.jsx  ← páginas dbt y Fabric
 │   ├── ProgressCard.jsx
 │   ├── RoadmapView.jsx        ← roadmap visual con entregables
-│   ├── GlossaryView.jsx       ← glosario con búsqueda
+│   ├── GlossaryView.jsx       ← glosario + SCD + recursos de aprendizaje
 │   ├── ToolsGrid.jsx
 │   └── Tooltip.jsx
 └── App.jsx                    ← tabs: Stack · dbt · Fabric · Roadmap · Glosario
@@ -929,10 +1079,13 @@ src/
 | Entregables por fase | `src/components/RoadmapView.jsx` → `PARTS_INFO` |
 | Principios DaaP | `src/data/objectives.js` |
 | Términos del glosario | `src/data/glossary.js` |
+| Tipos SCD y código | `src/components/GlossaryView.jsx` → `SCD_TYPES` |
+| Recursos de aprendizaje | `src/components/GlossaryView.jsx` → `RECURSOS` |
 
 ---
 
 <div align="center">
   <strong>Modern Data Stack · Azure DaaP · dbt + Microsoft Fabric</strong><br/>
+  Optimizado para analítica bancaria · Riesgo · Cumplimiento · Fraude · Tesorería<br/>
   <a href="https://lizandro-mc.github.io/modern-data-stack">lizandro-mc.github.io/modern-data-stack</a>
 </div>
