@@ -1,38 +1,22 @@
 import { useState, useMemo, useEffect } from 'react'
 import { glossary } from '../data/glossary'
+import { useLanguage } from '../i18n/LanguageContext'
 
-const SCD_TYPES = [
-  {
-    tipo: 'SCD 0', nombre: 'Fija',
-    color: '#6b7280', bg: '#f9fafb', border: '#d1d5db',
-    comportamiento: 'No se actualiza jamás.',
-    cuando: 'Datos inmutables por definición.',
-    ejemplo: 'Fecha de apertura de cuenta, número de crédito original.',
+// Solo datos estructurales (colores + código SQL inmutable)
+const SCD_STRUCTURE = [
+  { tipo: 'SCD 0', color: '#6b7280', bg: '#f9fafb', border: '#d1d5db',
     codigo: `-- SCD 0: columnas marcadas como inmutables en schema.yml
 -- No se incluyen en la lógica de actualización del snapshot.
--- Documentar en schema.yml:
--- description: "Valor inmutable — no actualizar nunca"`,
-  },
-  {
-    tipo: 'SCD 1', nombre: 'Sobreescribir',
-    color: '#b45309', bg: '#fffbeb', border: '#fcd34d',
-    comportamiento: 'Reemplaza el valor antiguo. Sin historial.',
-    cuando: 'El pasado no importa o fue un error de captura.',
-    ejemplo: 'Corrección de typos en nombre o email del cliente.',
+-- description: "Valor inmutable — no actualizar nunca"` },
+  { tipo: 'SCD 1', color: '#b45309', bg: '#fffbeb', border: '#fcd34d',
     codigo: `-- SCD 1 con dbt — el modelo refleja siempre el estado actual
 SELECT
     producto_id,
     nombre,
     categoria,        -- si cambia → se sobreescribe, sin historial
     precio_vigente
-FROM {{ ref('slv_productos') }}`,
-  },
-  {
-    tipo: 'SCD 2', nombre: 'Historial completo ⭐',
-    color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd',
-    comportamiento: 'Nueva fila por cada cambio, con valid_from / valid_to.',
-    cuando: 'Historial completo requerido — estándar bancario.',
-    ejemplo: 'Segmento de cliente, staging IFRS 9 (Stage 1/2/3), tasa de crédito.',
+FROM {{ ref('slv_productos') }}` },
+  { tipo: 'SCD 2', color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd',
     codigo: `{% snapshot snp_cliente_bancario %}
   {{ config(
       target_schema = 'snapshots',
@@ -49,41 +33,23 @@ SELECT
     dbt_valid_from AS valid_from,
     dbt_valid_to   AS valid_to,
     (dbt_valid_to IS NULL) AS is_current
-FROM {{ ref('snp_cliente_bancario') }}`,
-  },
-  {
-    tipo: 'SCD 3', nombre: 'Valor anterior',
-    color: '#7c3aed', bg: '#f5f3ff', border: '#c4b5fd',
-    comportamiento: 'Columna extra con el valor previo. Sin historial completo.',
-    cuando: 'Solo interesa el cambio más reciente.',
-    ejemplo: 'Dirección actual vs. dirección anterior del cliente.',
+FROM {{ ref('snp_cliente_bancario') }}` },
+  { tipo: 'SCD 3', color: '#7c3aed', bg: '#f5f3ff', border: '#c4b5fd',
     codigo: `SELECT
     cliente_id,
     direccion_actual,
     direccion_anterior,   -- columna extra con el valor previo
     fecha_cambio_direccion
-FROM {{ ref('slv_clientes') }}`,
-  },
-  {
-    tipo: 'SCD 4', nombre: 'Tabla historial',
-    color: '#065f46', bg: '#ecfdf5', border: '#6ee7b7',
-    comportamiento: 'Tabla principal con estado actual + tabla separada con historial completo.',
-    cuando: 'Dimensión enorme con pocos cambios frecuentes.',
-    ejemplo: 'Catálogo de tasas de referencia, historial de precios masivos.',
+FROM {{ ref('slv_clientes') }}` },
+  { tipo: 'SCD 4', color: '#065f46', bg: '#ecfdf5', border: '#6ee7b7',
     codigo: `-- Tabla principal: solo estado actual
 SELECT tasa_id, nombre, valor_actual, moneda
 FROM {{ ref('slv_tasas') }} WHERE is_current = true
 
 -- Tabla historial: todo el historial
 SELECT tasa_id, nombre, valor, moneda, valid_from, valid_to
-FROM {{ ref('snp_tasas_referencia') }}`,
-  },
-  {
-    tipo: 'SCD 6', nombre: 'Híbrido (1+2+3)',
-    color: '#9a3412', bg: '#fff7ed', border: '#fdba74',
-    comportamiento: 'Combina tipos 1, 2 y 3 en una sola fila.',
-    cuando: 'Necesitas historial completo Y valor actual en la misma fila.',
-    ejemplo: 'Análisis de cohortes: segmento histórico Y segmento actual en la misma query.',
+FROM {{ ref('snp_tasas_referencia') }}` },
+  { tipo: 'SCD 6', color: '#9a3412', bg: '#fff7ed', border: '#fdba74',
     codigo: `SELECT
     cliente_id,
     segmento                       AS segmento_historico,  -- SCD 2
@@ -97,74 +63,69 @@ FROM {{ ref('snp_tasas_referencia') }}`,
     dbt_valid_from AS valid_from,
     dbt_valid_to   AS valid_to,
     (dbt_valid_to IS NULL) AS is_current
-FROM {{ ref('snp_cliente_bancario') }}`,
-  },
+FROM {{ ref('snp_cliente_bancario') }}` },
 ]
 
-const RECURSOS = [
-  {
-    categoria: '🟡 dbt',
-    items: [
-      { label: 'dbt Learn — cursos oficiales gratuitos', url: 'https://learn.getdbt.com/' },
-      { label: 'dbt Best Practices (estructura, Medallion, naming)', url: 'https://docs.getdbt.com/best-practices' },
-      { label: 'dbt Source Freshness — validación de frescura', url: 'https://docs.getdbt.com/docs/build/sources#snapshotting-source-data-freshness' },
-      { label: 'dbt Snapshots — SCD 2 nativo', url: 'https://docs.getdbt.com/docs/build/snapshots' },
-      { label: 'dbt MetricFlow — motor de métricas semánticas', url: 'https://docs.getdbt.com/docs/build/about-metricflow' },
-      { label: 'dbt Discourse — comunidad y foro', url: 'https://discourse.getdbt.com/' },
-    ],
-  },
-  {
-    categoria: '🟣 Microsoft Fabric',
-    items: [
-      { label: 'Fabric Learn — módulos oficiales gratuitos', url: 'https://learn.microsoft.com/es-es/training/browse/?products=fabric' },
-      { label: 'Lakehouse vs. Warehouse en Fabric', url: 'https://learn.microsoft.com/es-es/fabric/data-engineering/lakehouse-vs-data-warehouse' },
-      { label: 'Fabric Capacity Planning (F-SKUs)', url: 'https://learn.microsoft.com/es-es/fabric/enterprise/plan-capacity' },
-      { label: 'Fabric Private Links — seguridad para banca', url: 'https://learn.microsoft.com/es-es/fabric/security/security-private-links-overview' },
-      { label: 'Fabric Git Integration (CI/CD nativo)', url: 'https://learn.microsoft.com/es-es/fabric/cicd/git-integration/intro-to-git-integration' },
-      { label: 'Fabric Community — foro oficial', url: 'https://community.fabric.microsoft.com/' },
-    ],
-  },
-  {
-    categoria: '🚚 Migración On-Premise → Azure',
-    items: [
-      { label: 'ADF Self-Hosted IR — conectar on-prem con Azure', url: 'https://learn.microsoft.com/es-es/azure/data-factory/create-self-hosted-integration-runtime' },
-      { label: 'Azure ExpressRoute — conexión privada dedicada', url: 'https://learn.microsoft.com/es-es/azure/expressroute/expressroute-introduction' },
-      { label: 'Azure Database Migration Service', url: 'https://learn.microsoft.com/es-es/azure/dms/dms-overview' },
-      { label: 'Debezium OSS — CDC desde Oracle, SQL Server, PostgreSQL', url: 'https://debezium.io/documentation/reference/stable/' },
-      { label: 'Azure Key Vault — gestión de secrets y credenciales', url: 'https://learn.microsoft.com/es-es/azure/key-vault/general/overview' },
-    ],
-  },
-  {
-    categoria: '🏦 Banca & Regulatorio RD',
-    items: [
-      { label: 'Superintendencia de Bancos RD (SB)', url: 'https://www.sb.gob.do/' },
-      { label: 'Banco Central RD (BCRD) — encaje, tasas', url: 'https://www.bancentral.gov.do/' },
-      { label: 'UAF — reportes AML', url: 'https://www.uaf.gob.do/' },
-      { label: 'Ley 155-17 — AML y Financiamiento del Terrorismo RD', url: 'https://www.uaf.gob.do/legislacion/leyes/' },
-      { label: 'Ley 183-02 — Ley Monetaria y Financiera RD', url: 'https://www.sb.gob.do/index.php/marco-legal/leyes' },
-      { label: 'Ley 172-13 — Protección de Datos Personales RD', url: 'https://indotel.gob.do/servicios/tic/proteccion-de-datos-personales/' },
-      { label: 'IFRS 9 — pérdida esperada, staging de créditos', url: 'https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9-financial-instruments/' },
-      { label: 'BIS — Marco Basilea III/IV', url: 'https://www.bis.org/bcbs/basel3.htm' },
-    ],
-  },
-  {
-    categoria: '🏗️ Fundamentos & Modelado',
-    items: [
-      { label: 'Data Mesh Principles — Martin Fowler', url: 'https://martinfowler.com/articles/data-mesh-principles.html' },
-      { label: 'The Analytics Engineering Guide — dbt Labs', url: 'https://www.getdbt.com/analytics-engineering/' },
-      { label: 'Kimball — SCD Techniques (referencia original)', url: 'https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimensions/' },
-      { label: 'Monte Carlo — Qué es la observabilidad de datos', url: 'https://www.montecarlodata.com/blog-what-is-data-observability/' },
-      { label: 'Great Expectations — validación de calidad OSS', url: 'https://docs.greatexpectations.io/' },
-    ],
-  },
+// URLs de recursos (orden debe coincidir con tg.recursos)
+const RECURSOS_URLS = [
+  [ // dbt
+    'https://learn.getdbt.com/',
+    'https://docs.getdbt.com/best-practices',
+    'https://docs.getdbt.com/docs/build/sources#snapshotting-source-data-freshness',
+    'https://docs.getdbt.com/docs/build/snapshots',
+    'https://docs.getdbt.com/docs/build/about-metricflow',
+    'https://discourse.getdbt.com/',
+  ],
+  [ // Fabric
+    'https://learn.microsoft.com/es-es/training/browse/?products=fabric',
+    'https://learn.microsoft.com/es-es/fabric/data-engineering/lakehouse-vs-data-warehouse',
+    'https://learn.microsoft.com/es-es/fabric/enterprise/plan-capacity',
+    'https://learn.microsoft.com/es-es/fabric/security/security-private-links-overview',
+    'https://learn.microsoft.com/es-es/fabric/cicd/git-integration/intro-to-git-integration',
+    'https://community.fabric.microsoft.com/',
+  ],
+  [ // Migración
+    'https://learn.microsoft.com/es-es/azure/data-factory/create-self-hosted-integration-runtime',
+    'https://learn.microsoft.com/es-es/azure/expressroute/expressroute-introduction',
+    'https://learn.microsoft.com/es-es/azure/dms/dms-overview',
+    'https://debezium.io/documentation/reference/stable/',
+    'https://learn.microsoft.com/es-es/azure/key-vault/general/overview',
+  ],
+  [ // Banca
+    'https://www.sb.gob.do/',
+    'https://www.bancentral.gov.do/',
+    'https://www.uaf.gob.do/',
+    'https://www.uaf.gob.do/legislacion/leyes/',
+    'https://www.sb.gob.do/index.php/marco-legal/leyes',
+    'https://indotel.gob.do/servicios/tic/proteccion-de-datos-personales/',
+    'https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9-financial-instruments/',
+    'https://www.bis.org/bcbs/basel3.htm',
+  ],
+  [ // Fundamentos
+    'https://martinfowler.com/articles/data-mesh-principles.html',
+    'https://www.getdbt.com/analytics-engineering/',
+    'https://www.kimballgroup.com/data-warehouse-business-intelligence-resources/kimball-techniques/dimensional-modeling-techniques/slowly-changing-dimensions/',
+    'https://www.montecarlodata.com/blog-what-is-data-observability/',
+    'https://docs.greatexpectations.io/',
+  ],
 ]
 
 export default function GlossaryView() {
+  const { t } = useLanguage()
+  const tg = t.glossary
   const [search, setSearch]           = useState('')
   const [section, setSection]         = useState('glosario')
   const [expandedScd, setExpandedScd] = useState(null)
 
-  // ── Antes de imprimir: mostrar todo ───────────────────────────────────────
+  // Combina estructura con texto traducido
+  const scdTypes = SCD_STRUCTURE.map((s, i) => ({ ...s, ...tg.scdTypes[i] }))
+
+  // Combina recursos traducidos con URLs
+  const recursos = tg.recursos.map((cat, ci) => ({
+    ...cat,
+    items: cat.items.map((item, ii) => ({ ...item, url: RECURSOS_URLS[ci][ii] })),
+  }))
+
   useEffect(() => {
     const before = () => setSection('all')
     const after  = () => setSection('glosario')
@@ -208,30 +169,25 @@ export default function GlossaryView() {
         background: 'linear-gradient(135deg, #0f172a, #1e40af)',
         borderRadius: 16, padding: '20px 24px', marginBottom: 16, color: '#fff',
       }}>
-        <div style={{ fontSize: 'clamp(17px,3vw,22px)', fontWeight: 900 }}>📖 Glosario · SCD · Recursos</div>
-        <div style={{ fontSize: 13, opacity: 0.85, marginTop: 6 }}>
-          Siglas bancarias y técnicas, tipos de dimensiones y referencias de aprendizaje del stack.
-        </div>
-        <div style={{ marginTop: 8, fontSize: 11, opacity: 0.65 }}>
-          {glossary.length} términos · 6 tipos SCD con código · 5 categorías de recursos
-        </div>
+        <div style={{ fontSize: 'clamp(17px,3vw,22px)', fontWeight: 900 }}>{tg.title}</div>
+        <div style={{ fontSize: 13, opacity: 0.85, marginTop: 6 }}>{tg.subtitle}</div>
+        <div style={{ marginTop: 8, fontSize: 11, opacity: 0.65 }}>{tg.stats(glossary.length)}</div>
       </div>
 
-      {/* Tabs — ocultos en print */}
+      {/* Tabs */}
       <div className="print-hide" style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-        <button style={tabStyle('glosario')} onClick={() => setSection('glosario')}>📖 Glosario ({glossary.length})</button>
-        <button style={tabStyle('scd')}      onClick={() => setSection('scd')}>🔄 Tipos SCD</button>
-        <button style={tabStyle('recursos')} onClick={() => setSection('recursos')}>🎓 Recursos</button>
+        <button style={tabStyle('glosario')} onClick={() => setSection('glosario')}>{tg.tabs.glossary(glossary.length)}</button>
+        <button style={tabStyle('scd')}      onClick={() => setSection('scd')}>{tg.tabs.scd}</button>
+        <button style={tabStyle('recursos')} onClick={() => setSection('recursos')}>{tg.tabs.resources}</button>
       </div>
 
       {/* ══ GLOSARIO ══════════════════════════════════════════════════════════ */}
       {showGlosario && (
         <div>
-          {/* Buscador — oculto en print */}
           <div className="print-hide" style={{ marginBottom: 14 }}>
             <input
               type="text"
-              placeholder="🔍  Buscar término, sigla o descripción... (ej: IFRS, SCD, AML)"
+              placeholder={tg.searchPlaceholder}
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{
@@ -242,16 +198,10 @@ export default function GlossaryView() {
               onFocus={e => e.target.style.borderColor = '#3b82f6'}
               onBlur={e => e.target.style.borderColor = '#e2e8f0'}
             />
-            {search && (
-              <div style={{ fontSize: 11, color: '#64748b', marginTop: 5 }}>
-                {filtered.length} resultado{filtered.length !== 1 ? 's' : ''} para "{search}"
-              </div>
-            )}
+            {search && <div style={{ fontSize: 11, color: '#64748b', marginTop: 5 }}>{tg.results(filtered.length, search)}</div>}
           </div>
 
-          {section === 'all' && (
-            <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 12 }}>📖 Glosario</div>
-          )}
+          {section === 'all' && <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 12 }}>{tg.sectionGlossary}</div>}
 
           <div data-print="glossary-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
             {filtered.map((g, i) => (
@@ -259,14 +209,8 @@ export default function GlossaryView() {
                 <div
                   data-print="glossary-item"
                   style={{ ...cardBase, height: '100%', cursor: 'pointer' }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.borderColor = '#3b82f6'
-                    e.currentTarget.style.transform = 'translateY(-1px)'
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.borderColor = '#e2e8f0'
-                    e.currentTarget.style.transform = 'none'
-                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.transform = 'none' }}
                 >
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                     <span style={{ background: '#1e40af', color: '#fff', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 800, flexShrink: 0 }}>
@@ -290,7 +234,7 @@ export default function GlossaryView() {
         <div style={{ marginTop: section === 'all' ? 32 : 0 }}>
           {section === 'all' && (
             <div data-print="page-break" style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 12 }}>
-              🔄 Tipos de Dimensiones (SCD)
+              {tg.sectionScd}
             </div>
           )}
 
@@ -298,29 +242,20 @@ export default function GlossaryView() {
             background: '#eff6ff', border: '1.5px solid #bfdbfe',
             borderRadius: 12, padding: '14px 18px', marginBottom: 14, fontSize: 13, color: '#1e40af', lineHeight: 1.7,
           }}>
-            <strong>¿Qué es una SCD?</strong> Define cómo tu Data Warehouse maneja los cambios en tablas dimensionales.
-            En banca es crítico para el staging IFRS 9 y segmento de clientes.
+            <strong>{tg.scdWhat}</strong> {tg.scdIntro}
           </div>
 
           {/* Árbol de decisión */}
           <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: 12, padding: '14px 18px', marginBottom: 14 }}>
-            <div style={{ fontWeight: 800, fontSize: 13, color: '#1e293b', marginBottom: 8 }}>🌳 Árbol de decisión</div>
+            <div style={{ fontWeight: 800, fontSize: 13, color: '#1e293b', marginBottom: 8 }}>{tg.scdTree}</div>
             <pre style={{ margin: 0, fontFamily: 'monospace', lineHeight: 1.9, fontSize: 11, color: '#1e293b', overflowX: 'auto' }}>
-{`¿Necesitas historial?
-  ├── NO  → SCD 1  (sobreescribir)
-  └── SÍ → ¿Dato inmutable?
-              ├── SÍ → SCD 0  (fija)
-              └── NO → ¿Cuánto historial?
-                         ├── Solo valor anterior  → SCD 3
-                         ├── Historial completo   → SCD 2  ⭐ estándar bancario
-                         ├── Dimensión enorme     → SCD 4
-                         └── Historial + actual   → SCD 6`}
+              {tg.scdTreeContent}
             </pre>
           </div>
 
           {/* Cards SCD */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 10, marginBottom: 16 }}>
-            {SCD_TYPES.map((scd, i) => (
+            {scdTypes.map((scd, i) => (
               <div key={i}>
                 <div
                   onClick={() => setExpandedScd(expandedScd === i ? null : i)}
@@ -337,18 +272,16 @@ export default function GlossaryView() {
                     <span style={{ fontWeight: 700, fontSize: 13, color: scd.color }}>{scd.nombre}</span>
                   </div>
                   <div style={{ fontSize: 12, color: '#374151', lineHeight: 1.6, marginBottom: 4 }}>{scd.comportamiento}</div>
-                  <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}><strong>Cuándo:</strong> {scd.cuando}</div>
-                  <div style={{ fontSize: 11, color: '#64748b' }}><strong>Ej banca:</strong> {scd.ejemplo}</div>
+                  <div style={{ fontSize: 11, color: '#64748b', marginBottom: 2 }}><strong>{tg.whenLabel}</strong> {scd.cuando}</div>
+                  <div style={{ fontSize: 11, color: '#64748b' }}><strong>{tg.bankExLabel}</strong> {scd.ejemplo}</div>
                   <div className="print-hide" style={{ fontSize: 10, color: scd.color, marginTop: 10, fontWeight: 700 }}>
-                    {expandedScd === i ? '▲ Ocultar código' : '▼ Ver código dbt'}
+                    {expandedScd === i ? tg.scdHide : tg.scdShow}
                   </div>
-                  {/* Código siempre visible en print */}
                   <pre className="print-only" style={{ display: 'none', margin: '10px 0 0', fontFamily: 'monospace', fontSize: 9, color: '#1e293b', whiteSpace: 'pre-wrap' }}>
                     {scd.codigo}
                   </pre>
                 </div>
 
-                {/* Panel código expandido — oculto en print (ya está inline arriba) */}
                 {expandedScd === i && (
                   <div className="print-hide" style={{
                     background: '#0f172a', borderRadius: 10, padding: '16px 20px',
@@ -367,8 +300,7 @@ export default function GlossaryView() {
             background: '#fefce8', border: '1.5px solid #fde047',
             borderRadius: 12, padding: '13px 16px', fontSize: 12, color: '#713f12', lineHeight: 1.7,
           }}>
-            <strong>⚠️ SCD 2 e IFRS 9:</strong> El staging (Stage 1→2→3) necesita historial completo para calcular ECL correctamente.
-            dbt Snapshots resuelve esto con <code>valid_from</code> / <code>valid_to</code> / <code>is_current</code>.
+            {tg.scdWarning}
           </div>
         </div>
       )}
@@ -378,11 +310,11 @@ export default function GlossaryView() {
         <div style={{ marginTop: section === 'all' ? 32 : 0 }}>
           {section === 'all' && (
             <div data-print="page-break" style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 12 }}>
-              🎓 Recursos de Aprendizaje
+              {tg.sectionResources}
             </div>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {RECURSOS.map((cat, ci) => (
+            {recursos.map((cat, ci) => (
               <div key={ci} data-print="card" style={{ ...cardBase }}>
                 <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 10 }}>{cat.categoria}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>

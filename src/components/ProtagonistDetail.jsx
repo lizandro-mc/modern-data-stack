@@ -1,13 +1,16 @@
-import { blockData } from '../data/blockData'
+import { getBlockData } from '../data/getBlockData'   // ← helper bilingüe
+import { useLanguage }  from '../i18n/LanguageContext'
 
 export default function ProtagonistDetail({ name, onBack }) {
-  const d = blockData[name]
+  const { t, lang } = useLanguage()
+  const tp = t.protagonist
+  const d  = getBlockData(name, lang)                  // ← traducido
   if (!d) return null
   const c = d.color
 
   return (
     <div>
-      {/* Volver — oculto en print */}
+      {/* Volver */}
       <button
         className="print-hide"
         onClick={onBack}
@@ -16,7 +19,9 @@ export default function ProtagonistDetail({ name, onBack }) {
           padding: '7px 14px', cursor: 'pointer', fontWeight: 700,
           fontSize: 12, marginBottom: 16, color: '#374151',
         }}
-      >← Volver</button>
+      >
+        {tp.back}
+      </button>
 
       {/* Hero */}
       <div
@@ -28,7 +33,7 @@ export default function ProtagonistDetail({ name, onBack }) {
       >
         <div style={{ fontSize: 40 }}>{d.emoji}</div>
         <div style={{ fontWeight: 900, fontSize: 'clamp(22px,4vw,30px)', marginTop: 8, letterSpacing: -0.5 }}>
-          {name === 'DBT' ? 'dbt — Data Build Tool' : 'Microsoft Fabric'}
+          {name === 'DBT' ? tp.dbtTitle : tp.fabricTitle}
         </div>
         <div style={{ fontSize: 'clamp(12px,2vw,14px)', opacity: 0.92, marginTop: 10, lineHeight: 1.7, maxWidth: 720 }}>
           {d.desc}
@@ -37,7 +42,7 @@ export default function ProtagonistDetail({ name, onBack }) {
 
       {/* Mejores prácticas */}
       <div data-print="card" style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
-        <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 14 }}>✅ Mejores Prácticas Clave</div>
+        <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 14 }}>{tp.practices}</div>
         <div data-print="grid-auto" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 10 }}>
           {d.practicas.map((p, i) => (
             <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
@@ -74,7 +79,7 @@ export default function ProtagonistDetail({ name, onBack }) {
 
       {/* Herramientas */}
       <div data-print="card" style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
-        <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 14 }}>🔧 Herramientas & Recursos</div>
+        <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 14 }}>{tp.tools}</div>
         <div data-print="grid-tools" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 10 }}>
           {d.herramientas.map((h, i) => (
             <a key={i} href={h.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>

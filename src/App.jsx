@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { partsConfig, TOTAL_DIAS } from './data/partsConfig'
 import { objectives } from './data/objectives'
 import { blockData } from './data/blockData'
+import { LanguageProvider, useLanguage } from './i18n/LanguageContext'
 import Header from './components/Header'
 import NavParts from './components/NavParts'
 import DiagramPart from './components/DiagramPart'
@@ -14,19 +15,35 @@ import GlossaryView from './components/GlossaryView'
 import PrintButton from './components/PrintButton'
 import './print.css'
 
-const TOP_TABS = [
-  { id: 'stack',    label: '🏗️ Stack' },
-  { id: 'dbt',      label: '🟡 dbt' },
-  { id: 'fabric',   label: '🟣 Fabric' },
-  { id: 'roadmap',  label: '📅 Roadmap' },
-  { id: 'glossary', label: '📖 Glosario' },
-]
+// ── Lee el idioma desde ?lang=es|en  (default: 'es') ─────────────────────────
+function getLangFromURL() {
+  const param = new URLSearchParams(window.location.search).get('lang')
+  return param === 'en' ? 'en' : 'es'
+}
 
-export default function App() {
-  const [topTab, setTopTab]           = useState('stack')
-  const [activePart, setActivePart]   = useState('overview')
+// ── Navega a la misma página cambiando solo el query param ────────────────────
+function switchLang(newLang) {
+  const url = new URL(window.location.href)
+  url.searchParams.set('lang', newLang)
+  window.location.href = url.toString()
+}
+
+// ── Inner app (necesita acceso al contexto de idioma) ─────────────────────────
+function AppInner() {
+  const { t, lang } = useLanguage()
+
+  const TOP_TABS = [
+    { id: 'stack',    label: t.tabs.stack    },
+    { id: 'dbt',      label: t.tabs.dbt      },
+    { id: 'fabric',   label: t.tabs.fabric   },
+    { id: 'roadmap',  label: t.tabs.roadmap  },
+    { id: 'glossary', label: t.tabs.glossary },
+  ]
+
+  const [topTab, setTopTab]         = useState('stack')
+  const [activePart, setActivePart] = useState('overview')
   const [activeBlock, setActiveBlock] = useState(null)
-  const [objOpen, setObjOpen]         = useState(true)
+  const [objOpen, setObjOpen]       = useState(true)
 
   const part = partsConfig.find(p => p.id === activePart)
 
@@ -45,23 +62,45 @@ export default function App() {
 
         <Header objOpen={objOpen} setObjOpen={setObjOpen} objectives={objectives} />
 
-        {/* ── Tabs principales — ocultos en print ── */}
+        {/* ── Tabs principales + selector de idioma ── */}
         {!activeBlock && (
-          <div className="print-hide" style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-            {TOP_TABS.map(t => (
-              <button key={t.id} onClick={() => handleTabChange(t.id)}
+          <div className="print-hide" style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+            {TOP_TABS.map(tab => (
+              <button key={tab.id} onClick={() => handleTabChange(tab.id)}
                 style={{
                   padding: '8px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
                   fontSize: 13, fontWeight: 700,
-                  background: topTab === t.id ? '#1e3a5f' : '#fff',
-                  color: topTab === t.id ? '#fff' : '#374151',
-                  boxShadow: topTab === t.id
+                  background: topTab === tab.id ? '#1e3a5f' : '#fff',
+                  color: topTab === tab.id ? '#fff' : '#374151',
+                  boxShadow: topTab === tab.id
                     ? '0 2px 10px rgba(0,0,0,0.18)'
                     : '0 1px 3px rgba(0,0,0,0.08)',
                   transition: 'all 0.2s',
                 }}
-              >{t.label}</button>
+              >{tab.label}</button>
             ))}
+
+            {/* ── Selector de idioma por URL ── */}
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+              {['es', 'en'].map(l => (
+                <a
+                  key={l}
+                  href={(() => { const u = new URL(window.location.href); u.searchParams.set('lang', l); return u.toString() })()}
+                  style={{
+                    padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                    textDecoration: 'none',
+                    background: lang === l ? '#1e3a5f' : '#fff',
+                    color: lang === l ? '#fff' : '#374151',
+                    boxShadow: lang === l
+                      ? '0 2px 10px rgba(0,0,0,0.18)'
+                      : '0 1px 3px rgba(0,0,0,0.08)',
+                    transition: 'all 0.2s',
+                  }}
+                >
+                  {l.toUpperCase()}
+                </a>
+              ))}
+            </div>
           </div>
         )}
 
@@ -113,18 +152,22 @@ export default function App() {
           </div>
         )}
 
+        {/* Pie de página */}
         <div className="print-hide" style={{ textAlign: 'center', fontSize: 10, color: '#94a3b8', marginTop: 24, paddingBottom: 8 }}>
-          Modern Data Stack · Azure DaaP · {new Date().getFullYear()}
+          {t.footer(new Date().getFullYear())}
         </div>
-
-        {/* Pie de página solo en print */}
-        <div style={{ display: 'none' }} data-print="footer">
-          Modern Data Stack · Azure DaaP · {new Date().getFullYear()}
-        </div>
-
       </div>
 
       <PrintButton />
     </div>
+  )
+}
+
+// ── Root: pasa el idioma leído de la URL al provider ─────────────────────────
+export default function App() {
+  return (
+    <LanguageProvider initialLang={getLangFromURL()}>
+      <AppInner />
+    </LanguageProvider>
   )
 }

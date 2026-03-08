@@ -1,7 +1,10 @@
 import { useState } from 'react'
+import { useLanguage } from '../i18n/LanguageContext'
 
 export default function Tooltip({ text, url, children }) {
+  const { t } = useLanguage()
   const [show, setShow] = useState(false)
+
   return (
     <span
       style={{ position: 'relative', display: 'inline-block' }}
@@ -19,7 +22,7 @@ export default function Tooltip({ text, url, children }) {
           {text}
           {url && (
             <div style={{ marginTop: 4, color: '#93c5fd', fontSize: 10 }}>
-              🔗 Click para documentación
+              {t.tooltip.clickDocs}
             </div>
           )}
           <div style={{
