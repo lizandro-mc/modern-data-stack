@@ -73,20 +73,20 @@
 
 Cada dominio es un **Data Product** independiente con su propietario, SLA, contratos y workspace en Fabric:
 
-| Dominio | Sistemas Fuente Típicos | Casos de Uso Analítico | Regulatorio |
-|---------|------------------------|----------------------|-------------|
-| **Riesgo de Crédito** | Core bancario, scoring externo, bureau | PD/LGD/EAD, IFRS 9, provisiones, cobranza | Basilea III/IV, IFRS 9 |
-| **Riesgo de Mercado** | Bloomberg, Reuters, sistemas de trading | VaR, stress testing, sensibilidades | Basilea IV, FRTB |
-| **Riesgo Operacional** | Registro de eventos, pólizas de seguro | Pérdidas operacionales, modelado AMA | Basilea III |
-| **Cumplimiento / AML** | Monitoreo transaccional, listas negras | Detección lavado, KYC, FATCA, reporte regulatorio | AML, FATCA, CRS |
+| Dominio | Sistemas Fuente Típicos | Casos de Uso Analítico | Regulatorio RD |
+|---------|------------------------|----------------------|----------------|
+| **Riesgo de Crédito** | Core bancario, scoring externo, DataCrédito/TransUnion | PD/LGD/EAD, IFRS 9, provisiones, cobranza | Ley 183-02, IFRS 9, Reglamento SB |
+| **Riesgo de Mercado** | Bloomberg, Reuters, sistemas de trading | VaR, stress testing, sensibilidades | Basilea IV, FRTB, instrucciones BCRD |
+| **Riesgo Operacional** | Registro de eventos, pólizas de seguro | Pérdidas operacionales, modelado AMA | Basilea III, Res. SB |
+| **Cumplimiento / AML** | Monitoreo transaccional, listas OFAC/ONU | Detección lavado, KYC, FATCA, reporte a UAF | Ley 155-17, FATCA, CRS |
 | **Fraude** | Transacciones, comportamiento digital | Detección en tiempo real, análisis de patrones | PCI DSS |
-| **Tesorería** | Sistemas ALM, Bloomberg | Posición de liquidez, gap de tasas, FTP | LCR, NSFR (Basilea III) |
+| **Tesorería** | Sistemas ALM, BCRD feed de tasas | Posición de liquidez, encaje legal, gap de tasas | LCR, NSFR, encaje BCRD |
 | **Banca Minorista** | CRM, canales digitales, call center | Rentabilidad por cliente, NPS, churn, cohortes | — |
 | **Banca Corporativa** | CRM corporativo, límites de crédito | Wallet share, exposición por sector | — |
 | **Tarjetas** | Procesadores (Visa/MC), fraude | Activación, transaccionalidad, rewards | PCI DSS |
-| **Préstamos / Créditos** | LOS (Loan Origination System) | Originación, morosidad, prepago | IFRS 9 |
-| **Canales Digitales** | App móvil, web, ATMs | Adopción digital, funnel, sesiones | — |
-| **Regulatorio** | Todos los dominios | CNBV, Banxico, IFRS, Basilea | Todos |
+| **Préstamos / Créditos** | LOS (Loan Origination System) | Originación, morosidad, prepago | IFRS 9, Reglamento SB créditos |
+| **Canales Digitales** | App móvil, web, ATMs | Adopción digital, funnel, sesiones | Res. SB banca electrónica |
+| **Regulatorio** | Todos los dominios | SB, BCRD, IFRS, Basilea, UAF | Todos |
 
 ### Arquitectura Fabric para Banca — Estructura de Workspaces
 
@@ -157,12 +157,13 @@ pii · pci · ifrs9 · aml · basilea · cnbv · daily · intraday · critical
 | Regulación | Qué impacta en el stack | Cómo lo resuelve el stack |
 |-----------|------------------------|--------------------------|
 | **IFRS 9** | Cálculo de PD, LGD, EAD, ECL; staging de créditos | Modelos dbt en `gold_riesgo_credito`; Azure ML para modelos estadísticos |
-| **Basilea III/IV** | Capital mínimo, LCR, NSFR; reporte de riesgo de mercado (FRTB) | Semantic model `sm_regulatorio`; dbt con fuentes de tesorería y riesgo |
-| **AML / FATF** | Detección de transacciones sospechosas; reporte a UIF | Pipeline AML en tiempo real con Event Hubs; modelos ML sobre OneLake |
-| **KYC / FATCA / CRS** | Identificación de clientes, residencia fiscal, reporte a SAT/IRS | `slv_cliente_kyc` con clasificaciones Purview; lineage trazable a auditores |
+| **Basilea III/IV** | Capital mínimo, LCR, NSFR, encaje legal; FRTB | Semantic model `sm_regulatorio`; dbt con fuentes de tesorería y riesgo |
+| **Ley 155-17 (AML/RD)** | Detección de operaciones sospechosas; reporte a UAF en 48h | Pipeline AML con Event Hubs; ML sobre OneLake; reporte automático a UAF |
+| **KYC / FATCA / CRS** | Identificación de clientes, residencia fiscal, reporte a DGII/IRS | `slv_cliente_kyc` con clasificaciones Purview; linaje trazable a auditores |
 | **PCI DSS** | Protección de datos de tarjeta (PAN, CVV); no almacenar CVV | Workspace PCI aislado; tokenización antes de llegar a Raw; RLS en Gold |
-| **CNBV / Banxico** | R01-R11, reportes financieros, catálogos CNBV | Dominio `gold_regulatorio`; validaciones dbt antes de envío |
-| **Privacidad (LFPDPPP)** | Protección de datos personales de clientes mexicanos | Sensitivity labels Purview; enmascaramiento en Silver para dev/stage |
+| **Ley Monetaria 183-02 / SB** | Reportes prudenciales, clasificación de cartera, límites de concentración | Dominio `gold_regulatorio`; validaciones dbt antes de envío a SB |
+| **Privacidad (Ley 172-13 RD)** | Protección de datos personales de clientes dominicanos | Sensitivity labels Purview; enmascaramiento en Silver para dev/stage |
+| **Encaje Legal (BCRD)** | Reporte diario de posición de encaje al Banco Central | Pipeline batch nocturno; validación dbt de saldos vs Core; envío al BCRD |
 
 ### Fraude en Tiempo Real — Patrón
 
@@ -787,10 +788,12 @@ wh_gold_regulatorio       sm_riesgo                 sm_retail
 
 **Nomenclatura de alertas bancarias**
 ```
-alert_P0_aml_pipeline_failure       ← impacto regulatorio inmediato
+alert_P0_aml_pipeline_failure       ← impacto regulatorio inmediato (Ley 155-17)
+alert_P0_encaje_bcrd_delayed        ← reporte de encaje al BCRD en riesgo
 alert_P1_core_freshness_exceeded    ← saldos con >4h sin actualizar
 alert_P1_recon_saldos_diferencia    ← diferencia on-prem vs Azure >0.001%
 alert_P2_ifrs9_run_delayed          ← modelo IFRS 9 no completó a tiempo
+alert_P2_sb_reporte_en_riesgo       ← reporte prudencial SB puede llegar tarde
 alert_P3_dashboard_retail_stale     ← dashboard ejecutivo >2h desactualizado
 ```
 

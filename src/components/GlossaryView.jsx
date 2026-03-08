@@ -175,13 +175,19 @@ const RECURSOS = [
     ],
   },
   {
-    categoria: '🏦 Banca & Regulatorio',
+    categoria: '🏦 Banca & Regulatorio RD',
     items: [
-      { label: 'BIS — Marco Basilea III/IV (fuente oficial)', url: 'https://www.bis.org/bcbs/basel3.htm' },
-      { label: 'IFRS 9 — IASB (norma original)', url: 'https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9-financial-instruments/' },
+      { label: 'Superintendencia de Bancos RD (SB) — ente supervisor', url: 'https://www.sb.gob.do/' },
+      { label: 'Banco Central RD (BCRD) — encaje, tasas, política monetaria', url: 'https://www.bancentral.gov.do/' },
+      { label: 'UAF — Unidad de Análisis Financiero RD (reportes AML)', url: 'https://www.uaf.gob.do/' },
+      { label: 'Ley 155-17 — AML y Financiamiento del Terrorismo RD', url: 'https://www.uaf.gob.do/legislacion/leyes/' },
+      { label: 'Ley 183-02 — Ley Monetaria y Financiera RD', url: 'https://www.sb.gob.do/index.php/marco-legal/leyes' },
+      { label: 'Ley 172-13 — Protección de Datos Personales RD', url: 'https://indotel.gob.do/servicios/tic/proteccion-de-datos-personales/' },
+      { label: 'DGII — Dirección General de Impuestos Internos (FATCA/CRS)', url: 'https://dgii.gov.do/' },
+      { label: 'BIS — Marco Basilea III/IV (fuente oficial internacional)', url: 'https://www.bis.org/bcbs/basel3.htm' },
+      { label: 'IFRS 9 — IASB (pérdida esperada, staging de créditos)', url: 'https://www.ifrs.org/issued-standards/list-of-standards/ifrs-9-financial-instruments/' },
       { label: 'FATF — Estándares AML internacionales', url: 'https://www.fatf-gafi.org/en/topics/fatf-recommendations.html' },
       { label: 'PCI DSS v4.0 — seguridad de datos de tarjetas', url: 'https://www.pcisecuritystandards.org/document_library/' },
-      { label: 'CNBV — Regulación bancaria México', url: 'https://www.cnbv.gob.mx/Regulacion' },
       { label: 'Azure Compliance — Servicios Financieros', url: 'https://learn.microsoft.com/es-es/azure/compliance/offerings/offering-ffiec-us' },
     ],
   },
@@ -204,12 +210,21 @@ export default function GlossaryView() {
   const [section, setSection]         = useState('glosario')
   const [expandedScd, setExpandedScd] = useState(null)
 
-  const filtered = useMemo(() =>
-    glossary.filter(g =>
-      g.term.toLowerCase().includes(search.toLowerCase()) ||
-      g.full.toLowerCase().includes(search.toLowerCase()) ||
-      g.desc.toLowerCase().includes(search.toLowerCase())
-    ), [search])
+  const filtered = useMemo(() => {
+    // Debug: identificar entradas malformadas (quitar en producción)
+    glossary.forEach((g, i) => {
+      if (!g?.term || !g?.full || !g?.desc) {
+        console.warn(`⚠️ Entrada malformada en glossary.js [índice ${i}]:`, g)
+      }
+    })
+    return glossary.filter(g =>
+      g?.term && g?.full && g?.desc && (
+        g.term.toLowerCase().includes(search.toLowerCase()) ||
+        g.full.toLowerCase().includes(search.toLowerCase()) ||
+        g.desc.toLowerCase().includes(search.toLowerCase())
+      )
+    )
+  }, [search])
 
   const tabStyle = (id) => ({
     padding: '7px 16px', borderRadius: 8, border: 'none', cursor: 'pointer',
