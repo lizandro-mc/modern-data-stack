@@ -3,7 +3,8 @@ import { blockData } from '../data/blockData'
 
 export default function ToolsGrid({ activeBlocks }) {
   return (
-    <div style={{ marginTop: 14 }}>
+    // print-hide: widget interactivo de referencia rápida, no aporta valor en PDF
+    <div className="print-hide" style={{ marginTop: 14 }}>
       <div style={{ fontWeight: 700, fontSize: 12, color: '#64748b', marginBottom: 8 }}>
         🔍 Vista rápida de tecnologías activas — pasa el cursor, haz clic para documentación oficial
       </div>

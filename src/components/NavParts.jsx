@@ -1,11 +1,10 @@
 export default function NavParts({ parts, activePart, setActivePart }) {
   return (
-    <div style={{
-      display: 'flex',
-      gap: 6,
-      flexWrap: 'wrap',
-      marginBottom: 14,
-    }}>
+    // print-hide: la navegación no tiene sentido en PDF
+    <div
+      className="print-hide"
+      style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}
+    >
       {parts.map(p => (
         <button
           key={p.id}

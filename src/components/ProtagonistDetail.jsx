@@ -7,17 +7,25 @@ export default function ProtagonistDetail({ name, onBack }) {
 
   return (
     <div>
-      <button onClick={onBack} style={{
-        background: '#e2e8f0', border: 'none', borderRadius: 8,
-        padding: '7px 14px', cursor: 'pointer', fontWeight: 700,
-        fontSize: 12, marginBottom: 16, color: '#374151',
-      }}>← Volver</button>
+      {/* Volver — oculto en print */}
+      <button
+        className="print-hide"
+        onClick={onBack}
+        style={{
+          background: '#e2e8f0', border: 'none', borderRadius: 8,
+          padding: '7px 14px', cursor: 'pointer', fontWeight: 700,
+          fontSize: 12, marginBottom: 16, color: '#374151',
+        }}
+      >← Volver</button>
 
       {/* Hero */}
-      <div style={{
-        background: `linear-gradient(135deg, ${c.border}, ${c.border}cc)`,
-        borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: '#fff',
-      }}>
+      <div
+        data-print="card"
+        style={{
+          background: `linear-gradient(135deg, ${c.border}, ${c.border}cc)`,
+          borderRadius: 16, padding: '24px 28px', marginBottom: 20, color: '#fff',
+        }}
+      >
         <div style={{ fontSize: 40 }}>{d.emoji}</div>
         <div style={{ fontWeight: 900, fontSize: 'clamp(22px,4vw,30px)', marginTop: 8, letterSpacing: -0.5 }}>
           {name === 'DBT' ? 'dbt — Data Build Tool' : 'Microsoft Fabric'}
@@ -27,10 +35,10 @@ export default function ProtagonistDetail({ name, onBack }) {
         </div>
       </div>
 
-      {/* Mejores prácticas generales */}
-      <div style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
+      {/* Mejores prácticas */}
+      <div data-print="card" style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 16, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 14 }}>✅ Mejores Prácticas Clave</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 10 }}>
+        <div data-print="grid-auto" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 10 }}>
           {d.practicas.map((p, i) => (
             <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <div style={{
@@ -46,9 +54,12 @@ export default function ProtagonistDetail({ name, onBack }) {
 
       {/* Secciones temáticas */}
       {d.secciones && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14, marginBottom: 16 }}>
+        <div
+          data-print="protagonist-sections"
+          style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: 14, marginBottom: 16 }}
+        >
           {d.secciones.map((s, i) => (
-            <div key={i} style={{ background: '#fff', borderRadius: 14, padding: 18, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
+            <div key={i} data-print="card" style={{ background: '#fff', borderRadius: 14, padding: 18, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
               <div style={{ fontWeight: 800, fontSize: 13, color: c.text, marginBottom: 12 }}>{s.titulo}</div>
               {s.items.map((item, j) => (
                 <div key={j} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -61,19 +72,14 @@ export default function ProtagonistDetail({ name, onBack }) {
         </div>
       )}
 
-      {/* Herramientas y recursos */}
-      <div style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
-        <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 14 }}>
-          🔧 Herramientas & Recursos de Aprendizaje
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 10 }}>
+      {/* Herramientas */}
+      <div data-print="card" style={{ background: '#fff', borderRadius: 14, padding: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
+        <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 14 }}>🔧 Herramientas & Recursos</div>
+        <div data-print="grid-tools" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 10 }}>
           {d.herramientas.map((h, i) => (
             <a key={i} href={h.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-              <div style={{
-                border: `1.5px solid ${c.border}`, borderRadius: 10,
-                padding: '12px 14px', background: c.bg, height: '100%',
-                transition: 'box-shadow 0.15s', cursor: 'pointer',
-              }}
+              <div
+                style={{ border: `1.5px solid ${c.border}`, borderRadius: 10, padding: '12px 14px', background: c.bg, height: '100%', transition: 'box-shadow 0.15s', cursor: 'pointer' }}
                 onMouseEnter={e => e.currentTarget.style.boxShadow = `0 4px 16px ${c.border}44`}
                 onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
               >

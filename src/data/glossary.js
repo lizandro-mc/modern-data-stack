@@ -24,6 +24,13 @@ export const glossary = [
     desc: 'Gestión del balance bancario: mide el gap entre activos y pasivos por plazo y tasa. Fuente para los modelos de tesorería y riesgo de mercado.',
     url: 'https://learn.microsoft.com/es-es/azure/architecture/data-guide/',
   },
+
+  {
+    term: 'Automatización E2E',
+    full: 'Automatización End-to-End (de extremo a extremo)',
+    desc: 'Orquestación completa del pipeline de datos sin intervención manual: desde la extracción en el origen hasta la disponibilidad del dato en el reporte o modelo ML. En este stack se implementa con ADF (ingesta), dbt Jobs (transformación) y Airflow (coordinación de dependencias complejas). Incluye reintentos automáticos, alertas ante fallos y despliegue continuo vía CI/CD.',
+    url: 'https://learn.microsoft.com/es-es/azure/data-factory/concepts-pipelines-activities',
+  },
   {
     term: 'AML',
     full: 'Anti-Money Laundering (Prevención de Lavado de Activos)',
@@ -246,203 +253,203 @@ export const glossary = [
     url: 'https://www.sb.gob.do/index.php/marco-legal/leyes',
   },
   {
-  term: 'Medallion Architecture',
-  full: 'Arquitectura Medallion (Bronze / Silver / Gold)',
-  desc: 'Bronze (datos crudos descompuestos), Silver (limpios, enmascarados para dev), Gold (lógica regulatoria y de negocio). Estándar en Fabric y dbt.',
-  url: 'https://learn.microsoft.com/es-es/azure/databricks/lakehouse/medallion',
+    term: 'Medallion Architecture',
+    full: 'Arquitectura Medallion (Bronze / Silver / Gold)',
+    desc: 'Bronze (datos crudos descompuestos), Silver (limpios, enmascarados para dev), Gold (lógica regulatoria y de negocio). Estándar en Fabric y dbt.',
+    url: 'https://learn.microsoft.com/es-es/azure/databricks/lakehouse/medallion',
   },
-{
-  term: 'ML',
+  {
+    term: 'ML',
     full: 'Machine Learning (Aprendizaje Automático)',
-      desc: 'En banca: scoring IFRS 9, detección de fraude, AML, churn, propensión. Azure ML gestiona el ciclo completo con validación MRM obligatoria.',
-        url: 'https://learn.microsoft.com/es-es/azure/machine-learning/overview-what-is-azure-machine-learning',
+    desc: 'En banca: scoring IFRS 9, detección de fraude, AML, churn, propensión. Azure ML gestiona el ciclo completo con validación MRM obligatoria.',
+    url: 'https://learn.microsoft.com/es-es/azure/machine-learning/overview-what-is-azure-machine-learning',
   },
-{
-  term: 'MLOps',
+  {
+    term: 'MLOps',
     full: 'Machine Learning Operations',
-      desc: 'DevOps aplicado a modelos ML: entrenamiento, registro, despliegue, monitoreo y reentrenamiento. MLflow en Azure ML para trazabilidad completa.',
-        url: 'https://learn.microsoft.com/es-es/azure/machine-learning/concept-model-management-and-deployment',
+    desc: 'DevOps aplicado a modelos ML: entrenamiento, registro, despliegue, monitoreo y reentrenamiento. MLflow en Azure ML para trazabilidad completa.',
+    url: 'https://learn.microsoft.com/es-es/azure/machine-learning/concept-model-management-and-deployment',
   },
-{
-  term: 'MPP',
+  {
+    term: 'MPP',
     full: 'Massively Parallel Processing',
-      desc: 'Arquitectura que distribuye consultas entre nodos para procesarlas en paralelo a escala de petabytes. Base de Fabric Warehouse y Azure Synapse.',
-        url: 'https://learn.microsoft.com/es-es/azure/synapse-analytics/sql-data-warehouse/massively-parallel-processing-mpp-architecture',
+    desc: 'Arquitectura que distribuye consultas entre nodos para procesarlas en paralelo a escala de petabytes. Base de Fabric Warehouse y Azure Synapse.',
+    url: 'https://learn.microsoft.com/es-es/azure/synapse-analytics/sql-data-warehouse/massively-parallel-processing-mpp-architecture',
   },
-{
-  term: 'MRM',
+  {
+    term: 'MRM',
     full: 'Model Risk Management (Gestión del Riesgo de Modelos)',
-      desc: 'Proceso de validación independiente de modelos estadísticos y ML. Exigido por reguladores bancarios para modelos usados en decisiones de capital y riesgo (IFRS 9, scoring).',
-        url: 'https://www.bis.org/publ/work683.htm',
+    desc: 'Proceso de validación independiente de modelos estadísticos y ML. Exigido por reguladores bancarios para modelos usados en decisiones de capital y riesgo (IFRS 9, scoring).',
+    url: 'https://www.bis.org/publ/work683.htm',
   },
-// ── N ─────────────────────────────────────────────────────────────────────
-{
-  term: 'NPL',
+  // ── N ─────────────────────────────────────────────────────────────────────
+  {
+    term: 'NPL',
     full: 'Non-Performing Loan (Crédito en Mora)',
-      desc: 'Crédito con pagos vencidos >90 días. Ratio NPL = cartera vencida / cartera total. KPI regulatorio clave reportado a CNBV y analizado en el dominio de riesgo de crédito.',
-        url: 'https://www.bis.org/bcbs/publ/d424.htm',
+    desc: 'Crédito con pagos vencidos >90 días. Ratio NPL = cartera vencida / cartera total. KPI regulatorio clave reportado a CNBV y analizado en el dominio de riesgo de crédito.',
+    url: 'https://www.bis.org/bcbs/publ/d424.htm',
   },
-{
-  term: 'NSFR',
+  {
+    term: 'NSFR',
     full: 'Net Stable Funding Ratio (Ratio de Financiación Estable Neta)',
-      desc: 'Exigencia Basilea III: fuentes de financiación estable disponible / fuentes requeridas ≥ 100%. Calculado mensualmente en el dominio de tesorería.',
-        url: 'https://www.bis.org/bcbs/publ/d295.htm',
+    desc: 'Exigencia Basilea III: fuentes de financiación estable disponible / fuentes requeridas ≥ 100%. Calculado mensualmente en el dominio de tesorería.',
+    url: 'https://www.bis.org/bcbs/publ/d295.htm',
   },
-// ── O ─────────────────────────────────────────────────────────────────────
-{
-  term: 'OLAP',
+  // ── O ─────────────────────────────────────────────────────────────────────
+  {
+    term: 'OLAP',
     full: 'Online Analytical Processing',
-      desc: 'Bases de datos para análisis masivo de datos históricos. Fabric Warehouse y Lakehouse son OLAP. Optimizadas para lectura, no para escrituras frecuentes.',
-        url: 'https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-analytical-processing',
+    desc: 'Bases de datos para análisis masivo de datos históricos. Fabric Warehouse y Lakehouse son OLAP. Optimizadas para lectura, no para escrituras frecuentes.',
+    url: 'https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-analytical-processing',
   },
-{
-  term: 'OLTP',
+  {
+    term: 'OLTP',
     full: 'Online Transaction Processing',
-      desc: 'Bases de datos operacionales (core bancario, CRM, LOS). Optimizadas para escrituras rápidas. No aptas para análisis directo — se extrae vía CDC hacia el stack.',
-        url: 'https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-transaction-processing',
+    desc: 'Bases de datos operacionales (core bancario, CRM, LOS). Optimizadas para escrituras rápidas. No aptas para análisis directo — se extrae vía CDC hacia el stack.',
+    url: 'https://learn.microsoft.com/es-es/azure/architecture/data-guide/relational-data/online-transaction-processing',
   },
-{
-  term: 'OneLake',
+  {
+    term: 'OneLake',
     full: 'OneLake (Microsoft Fabric)',
-      desc: 'Único data lake lógico de Fabric. Base física: ADLS Gen2. Todos los items Fabric almacenan datos aquí en Delta/Parquet abierto.',
-        url: 'https://learn.microsoft.com/es-es/fabric/onelake/onelake-overview',
+    desc: 'Único data lake lógico de Fabric. Base física: ADLS Gen2. Todos los items Fabric almacenan datos aquí en Delta/Parquet abierto.',
+    url: 'https://learn.microsoft.com/es-es/fabric/onelake/onelake-overview',
   },
-{
-  term: 'OSS',
+  {
+    term: 'OSS',
     full: 'Open Source Software (Software de Código Abierto)',
-      desc: 'En este stack: dbt Core, Airbyte, Debezium, Elementary, Apache Airflow. Reduce costos y dependencia de proveedores.',
-        url: 'https://opensource.org/osd',
+    desc: 'En este stack: dbt Core, Airbyte, Debezium, Elementary, Apache Airflow. Reduce costos y dependencia de proveedores.',
+    url: 'https://opensource.org/osd',
   },
-// ── P ─────────────────────────────────────────────────────────────────────
-{
-  term: 'Parquet',
+  // ── P ─────────────────────────────────────────────────────────────────────
+  {
+    term: 'Parquet',
     full: 'Apache Parquet (formato columnar)',
-      desc: 'Formato columnar optimizado para análisis. Base de Delta Lake. Hasta 10x más rápido y compacto que CSV o JSON para cargas analíticas.',
-        url: 'https://parquet.apache.org/docs/',
+    desc: 'Formato columnar optimizado para análisis. Base de Delta Lake. Hasta 10x más rápido y compacto que CSV o JSON para cargas analíticas.',
+    url: 'https://parquet.apache.org/docs/',
   },
-{
-  term: 'PCI DSS',
+  {
+    term: 'PCI DSS',
     full: 'Payment Card Industry Data Security Standard',
-      desc: 'Estándar de seguridad para datos de tarjetas. Prohíbe almacenar CVV, exige enmascarar PAN. En Fabric: workspace PCI aislado con F-SKU y Private Link dedicados.',
-        url: 'https://www.pcisecuritystandards.org/',
+    desc: 'Estándar de seguridad para datos de tarjetas. Prohíbe almacenar CVV, exige enmascarar PAN. En Fabric: workspace PCI aislado con F-SKU y Private Link dedicados.',
+    url: 'https://www.pcisecuritystandards.org/',
   },
-{
-  term: 'PD',
+  {
+    term: 'PD',
     full: 'Probability of Default (Probabilidad de Incumplimiento)',
-      desc: 'Probabilidad de que un deudor no pueda pagar en los próximos 12 meses (Stage 1) o en vida del crédito (Stage 2/3). Componente central de IFRS 9 y Basilea.',
-        url: 'https://www.bis.org/bcbs/publ/d424.htm',
+    desc: 'Probabilidad de que un deudor no pueda pagar en los próximos 12 meses (Stage 1) o en vida del crédito (Stage 2/3). Componente central de IFRS 9 y Basilea.',
+    url: 'https://www.bis.org/bcbs/publ/d424.htm',
   },
-{
-  term: 'PII',
+  {
+    term: 'PII',
     full: 'Personally Identifiable Information',
-      desc: 'Datos que identifican a una persona: nombre, email, RFC, CURP, teléfono. En Silver: siempre enmascarados para dev/stage. En prod: sensitivity label Purview.',
-        url: 'https://learn.microsoft.com/es-es/purview/sensitivity-labels',
+    desc: 'Datos que identifican a una persona: nombre, email, RFC, CURP, teléfono. En Silver: siempre enmascarados para dev/stage. En prod: sensitivity label Purview.',
+    url: 'https://learn.microsoft.com/es-es/purview/sensitivity-labels',
   },
-{
-  term: 'PR',
+  {
+    term: 'PR',
     full: 'Pull Request (Solicitud de Integración)',
-      desc: 'Propuesta de cambio en Git con revisión de pares. En dbt: obligatorio para cambios en modelos Gold, métricas regulatorias o contratos de datos.',
-        url: 'https://docs.github.com/es/pull-requests',
+    desc: 'Propuesta de cambio en Git con revisión de pares. En dbt: obligatorio para cambios en modelos Gold, métricas regulatorias o contratos de datos.',
+    url: 'https://docs.github.com/es/pull-requests',
   },
-// ── R ─────────────────────────────────────────────────────────────────────
-{
-  term: 'RAG',
+  // ── R ─────────────────────────────────────────────────────────────────────
+  {
+    term: 'RAG',
     full: 'Retrieval Augmented Generation',
-      desc: 'LLM (GPT-4o) + búsqueda sobre datos propios del banco para respuestas contextualizadas. Azure OpenAI + Azure AI Search indexando datos del Lakehouse.',
-        url: 'https://learn.microsoft.com/es-es/azure/search/retrieval-augmented-generation-overview',
+    desc: 'LLM (GPT-4o) + búsqueda sobre datos propios del banco para respuestas contextualizadas. Azure OpenAI + Azure AI Search indexando datos del Lakehouse.',
+    url: 'https://learn.microsoft.com/es-es/azure/search/retrieval-augmented-generation-overview',
   },
-{
-  term: 'RBAC',
+  {
+    term: 'RBAC',
     full: 'Role-Based Access Control (Control de Acceso Basado en Roles)',
-      desc: 'Permisos asignados a roles, no a personas. En banca: roles DataOwner, DataEngineer, DataReader, MLEngineer, Auditor. El Auditor tiene lectura completa pero no puede exportar.',
-        url: 'https://learn.microsoft.com/es-es/fabric/security/permission-model',
+    desc: 'Permisos asignados a roles, no a personas. En banca: roles DataOwner, DataEngineer, DataReader, MLEngineer, Auditor. El Auditor tiene lectura completa pero no puede exportar.',
+    url: 'https://learn.microsoft.com/es-es/fabric/security/permission-model',
   },
-{
-  term: 'REST',
+  {
+    term: 'REST',
     full: 'Representational State Transfer',
-      desc: 'Estilo arquitectónico para APIs web. La capa semántica del stack se expone vía API REST para consumo desde sistemas regulatorios externos.',
-        url: 'https://learn.microsoft.com/es-es/azure/architecture/best-practices/api-design',
+    desc: 'Estilo arquitectónico para APIs web. La capa semántica del stack se expone vía API REST para consumo desde sistemas regulatorios externos.',
+    url: 'https://learn.microsoft.com/es-es/azure/architecture/best-practices/api-design',
   },
-{
-  term: 'RLS',
+  {
+    term: 'RLS',
     full: 'Row-Level Security (Seguridad a Nivel de Fila)',
-      desc: 'Cada usuario solo ve las filas a las que tiene acceso (ej: un gerente de sucursal solo ve sus clientes). Configurado en Fabric Warehouse y Semantic Model.',
-        url: 'https://learn.microsoft.com/es-es/fabric/security/service-admin-row-level-security',
+    desc: 'Cada usuario solo ve las filas a las que tiene acceso (ej: un gerente de sucursal solo ve sus clientes). Configurado en Fabric Warehouse y Semantic Model.',
+    url: 'https://learn.microsoft.com/es-es/fabric/security/service-admin-row-level-security',
   },
-{
-  term: 'RPO',
+  {
+    term: 'RPO',
     full: 'Recovery Point Objective (Objetivo de Punto de Recuperación)',
-      desc: 'Pérdida máxima de datos aceptable ante un desastre. Ej: RPO = 1h significa perder máximo 1h de datos. Define la frecuencia mínima de respaldo o replicación.',
-        url: 'https://learn.microsoft.com/es-es/azure/reliability/disaster-recovery-overview',
+    desc: 'Pérdida máxima de datos aceptable ante un desastre. Ej: RPO = 1h significa perder máximo 1h de datos. Define la frecuencia mínima de respaldo o replicación.',
+    url: 'https://learn.microsoft.com/es-es/azure/reliability/disaster-recovery-overview',
   },
-{
-  term: 'RTO',
+  {
+    term: 'RTO',
     full: 'Recovery Time Objective (Objetivo de Tiempo de Recuperación)',
-      desc: 'Tiempo máximo para restaurar el servicio tras un desastre. Ej: RTO = 4h. Define el nivel de redundancia y automatización de failover necesario.',
-        url: 'https://learn.microsoft.com/es-es/azure/reliability/disaster-recovery-overview',
+    desc: 'Tiempo máximo para restaurar el servicio tras un desastre. Ej: RTO = 4h. Define el nivel de redundancia y automatización de failover necesario.',
+    url: 'https://learn.microsoft.com/es-es/azure/reliability/disaster-recovery-overview',
   },
-// ── S ─────────────────────────────────────────────────────────────────────
-{
-  term: 'SB',
+  // ── S ─────────────────────────────────────────────────────────────────────
+  {
+    term: 'SB',
     full: 'Superintendencia de Bancos de la República Dominicana',
-      desc: 'Ente supervisor del sistema bancario dominicano. Recibe reportes prudenciales periódicos (clasificación de cartera, capital, liquidez). El dominio regulatorio del stack produce estos reportes automáticamente con validaciones dbt.',
-        url: 'https://www.sb.gob.do/',
+    desc: 'Ente supervisor del sistema bancario dominicano. Recibe reportes prudenciales periódicos (clasificación de cartera, capital, liquidez). El dominio regulatorio del stack produce estos reportes automáticamente con validaciones dbt.',
+    url: 'https://www.sb.gob.do/',
   },
-{
-  term: 'SCD',
+  {
+    term: 'SCD',
     full: 'Slowly Changing Dimension (Dimensión que Cambia Lentamente)',
-      desc: 'Patrón para manejar cambios históricos en dimensiones (clientes, productos). SCD 2 es el estándar bancario: guarda historial completo con valid_from / valid_to. Crítico para IFRS 9 (staging) y análisis de cohortes.',
-        url: 'https://docs.getdbt.com/docs/build/snapshots',
+    desc: 'Patrón para manejar cambios históricos en dimensiones (clientes, productos). SCD 2 es el estándar bancario: guarda historial completo con valid_from / valid_to. Crítico para IFRS 9 (staging) y análisis de cohortes.',
+    url: 'https://docs.getdbt.com/docs/build/snapshots',
   },
-{
-  term: 'Schema-on-Read',
+  {
+    term: 'Schema-on-Read',
     full: 'Schema-on-Read (Esquema en Lectura)',
-      desc: 'Datos almacenados sin estructura impuesta (tal como llegan) y el esquema se aplica al leerlos. Usado en RAW/Bronze para preservar archivos COBOL y JSON intactos.',
-        url: 'https://docs.delta.io/latest/schema-validation.html',
+    desc: 'Datos almacenados sin estructura impuesta (tal como llegan) y el esquema se aplica al leerlos. Usado en RAW/Bronze para preservar archivos COBOL y JSON intactos.',
+    url: 'https://docs.delta.io/latest/schema-validation.html',
   },
-{
-  term: 'SHIR',
+  {
+    term: 'SHIR',
     full: 'Self-Hosted Integration Runtime',
-      desc: 'Agente ADF instalado dentro de la red del banco para conectar sistemas on-prem con Azure sin exponer puertos. Obligatorio para bancos con core bancario on-prem.',
-        url: 'https://learn.microsoft.com/es-es/azure/data-factory/create-self-hosted-integration-runtime',
+    desc: 'Agente ADF instalado dentro de la red del banco para conectar sistemas on-prem con Azure sin exponer puertos. Obligatorio para bancos con core bancario on-prem.',
+    url: 'https://learn.microsoft.com/es-es/azure/data-factory/create-self-hosted-integration-runtime',
   },
-{
-  term: 'SLA',
+  {
+    term: 'SLA',
     full: 'Service Level Agreement (Acuerdo de Nivel de Servicio)',
-      desc: 'Compromiso formal de disponibilidad, frescura o calidad de un dato. En banca: el reporte R01 a Banxico tiene SLA regulatorio — no puede llegar tarde.',
-        url: 'https://learn.microsoft.com/es-es/azure/azure-monitor/alerts/alerts-overview',
+    desc: 'Compromiso formal de disponibilidad, frescura o calidad de un dato. En banca: el reporte R01 a Banxico tiene SLA regulatorio — no puede llegar tarde.',
+    url: 'https://learn.microsoft.com/es-es/azure/azure-monitor/alerts/alerts-overview',
   },
-{
-  term: 'SOC 2',
+  {
+    term: 'SOC 2',
     full: 'Service Organization Control 2',
-      desc: 'Auditoría de seguridad cloud. Microsoft Fabric y Azure tienen certificación SOC 2 Tipo II — requerida para uso en entornos bancarios regulados.',
-        url: 'https://learn.microsoft.com/es-es/azure/compliance/offerings/offering-soc-2',
+    desc: 'Auditoría de seguridad cloud. Microsoft Fabric y Azure tienen certificación SOC 2 Tipo II — requerida para uso en entornos bancarios regulados.',
+    url: 'https://learn.microsoft.com/es-es/azure/compliance/offerings/offering-soc-2',
   },
-{
-  term: 'SQL',
+  {
+    term: 'SQL',
     full: 'Structured Query Language',
-      desc: 'Lenguaje estándar para bases de datos relacionales. dbt usa SQL para todos los modelos de transformación.',
-        url: 'https://docs.getdbt.com/docs/core/connect-data-platform/about-core-connections',
+    desc: 'Lenguaje estándar para bases de datos relacionales. dbt usa SQL para todos los modelos de transformación.',
+    url: 'https://docs.getdbt.com/docs/core/connect-data-platform/about-core-connections',
   },
-// ── U ─────────────────────────────────────────────────────────────────────
-{
-  term: 'UAF',
+  // ── U ─────────────────────────────────────────────────────────────────────
+  {
+    term: 'UAF',
     full: 'Unidad de Análisis Financiero (República Dominicana)',
-      desc: 'Organismo receptor de los Reportes de Operaciones Sospechosas (ROS) en RD según la Ley 155-17. Los bancos deben reportar en máximo 48h. El stack automatiza la detección y generación del reporte.',
-        url: 'https://www.uaf.gob.do/',
+    desc: 'Organismo receptor de los Reportes de Operaciones Sospechosas (ROS) en RD según la Ley 155-17. Los bancos deben reportar en máximo 48h. El stack automatiza la detección y generación del reporte.',
+    url: 'https://www.uaf.gob.do/',
   },
-// ── V ─────────────────────────────────────────────────────────────────────
-{
-  term: 'VaR',
+  // ── V ─────────────────────────────────────────────────────────────────────
+  {
+    term: 'VaR',
     full: 'Value at Risk (Valor en Riesgo)',
-      desc: 'Pérdida máxima esperada en un portafolio con un nivel de confianza dado (ej: 99%) en un horizonte temporal. Métrica central de riesgo de mercado.',
-        url: 'https://www.bis.org/publ/work347.htm',
+    desc: 'Pérdida máxima esperada en un portafolio con un nivel de confianza dado (ej: 99%) en un horizonte temporal. Métrica central de riesgo de mercado.',
+    url: 'https://www.bis.org/publ/work347.htm',
   },
-// ── Z ─────────────────────────────────────────────────────────────────────
-{
-  term: 'Zero-copy',
+  // ── Z ─────────────────────────────────────────────────────────────────────
+  {
+    term: 'Zero-copy',
     full: 'Zero-copy (clonación sin duplicar datos)',
-      desc: 'Referencia (shortcut) a datos en lugar de duplicarlos físicamente. OneLake usa zero-copy para compartir datos entre dominios sin moverlos.',
-        url: 'https://learn.microsoft.com/es-es/fabric/onelake/onelake-shortcuts',
+    desc: 'Referencia (shortcut) a datos en lugar de duplicarlos físicamente. OneLake usa zero-copy para compartir datos entre dominios sin moverlos.',
+    url: 'https://learn.microsoft.com/es-es/fabric/onelake/onelake-shortcuts',
   },
 ]

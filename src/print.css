@@ -1,0 +1,120 @@
+@media print {
+
+  /* ── Reset general ────────────────────────────── */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    box-shadow: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    font-size: 11pt;
+    color: #1f2937;
+  }
+
+  /* ── Ocultar elementos de navegación ─────────── */
+  /* Tabs principales */
+  .print-hide {
+    display: none !important;
+  }
+
+  /* ── Contenedor principal ─────────────────────── */
+  #root > div {
+    background: #fff !important;
+    padding: 0 !important;
+  }
+
+  #root > div > div {
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  /* ── Header ───────────────────────────────────── */
+  [data-print="header"] {
+    background: #1e3a5f !important;
+    color: #fff !important;
+    border-radius: 0 !important;
+    margin-bottom: 16pt !important;
+    page-break-after: avoid;
+  }
+
+  /* ── Tarjetas / bloques ───────────────────────── */
+  [data-print="card"] {
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 8pt !important;
+    background: #fff !important;
+    margin-bottom: 12pt !important;
+    padding: 12pt !important;
+    page-break-inside: avoid;
+  }
+
+  /* ── Grid 2 columnas → 1 en print estrecho ────── */
+  [data-print="grid-2col"] {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* ── Herramientas grid ────────────────────────── */
+  [data-print="tools-grid"] {
+    grid-template-columns: 1fr 1fr 1fr !important;
+  }
+
+  /* ── Tablas ───────────────────────────────────── */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    page-break-inside: avoid;
+  }
+
+  th, td {
+    border: 1px solid #cbd5e1 !important;
+    padding: 5pt 8pt !important;
+    font-size: 9pt !important;
+  }
+
+  /* ── Links: mostrar URL como texto ───────────── */
+  a[href]::after {
+    content: none !important; /* no mostrar URL completa, solo el texto */
+  }
+
+  /* ── Saltos de página ─────────────────────────── */
+  [data-print="page-break"] {
+    page-break-before: always;
+  }
+
+  /* ── Bloques del diagrama ─────────────────────── */
+  [data-print="diagram"] {
+    page-break-inside: avoid;
+  }
+
+  /* ── Ocultar botones de acción ────────────────── */
+  button {
+    display: none !important;
+  }
+
+  /* ── Glosario: 2 columnas en print ───────────── */
+  [data-print="glossary-grid"] {
+    column-count: 2 !important;
+    column-gap: 20pt !important;
+  }
+
+  [data-print="glossary-item"] {
+    break-inside: avoid !important;
+    margin-bottom: 8pt !important;
+  }
+
+  /* ── Roadmap ──────────────────────────────────── */
+  [data-print="roadmap-row"] {
+    page-break-inside: avoid;
+  }
+
+  /* ── Pie de página automático ─────────────────── */
+  @page {
+    margin: 1.5cm 1.5cm 2cm 1.5cm;
+    size: A4 portrait;
+  }
+
+  @page :first {
+    margin-top: 1cm;
+  }
+}

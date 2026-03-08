@@ -1,4 +1,18 @@
+import { useState, useEffect } from 'react'
+
+function useIsMobile(bp = 600) {
+  const [m, setM] = useState(() => window.innerWidth < bp)
+  useEffect(() => {
+    const h = () => setM(window.innerWidth < bp)
+    window.addEventListener('resize', h)
+    return () => window.removeEventListener('resize', h)
+  }, [bp])
+  return m
+}
+
 export default function Header({ objOpen, setObjOpen, objectives }) {
+  const isMobile = useIsMobile()
+
   return (
     <div style={{
       background: 'linear-gradient(135deg, #1e3a5f, #0ea5e9)',
@@ -14,12 +28,57 @@ export default function Header({ objOpen, setObjOpen, objectives }) {
         Arquitectura completa · dbt · Fabric · Purview · Observabilidad · ELT
       </div>
 
+      {/* Grid de objetivos */}
+      {objOpen && <div style={{
+        marginTop: 14,
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+        gap: 8,
+      }}>
+        {objectives.map(o => (
+          <div
+            key={o.label}
+            style={{
+              background: 'rgba(255,255,255,0.12)',
+              borderRadius: 8,
+              padding: '8px 10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700 }}>{o.icon} {o.label}</div>
+            <div style={{ fontSize: 11, opacity: 0.82 }}>{o.desc}</div>
+            {o.url && (
+              <a
+                href={o.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: 10,
+                  color: '#bae6fd',
+                  marginTop: 4,
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  wordBreak: 'break-all',
+                }}
+                onMouseEnter={e => e.currentTarget.style.textDecoration = 'underline'}
+                onMouseLeave={e => e.currentTarget.style.textDecoration = 'none'}
+              >
+                📖 {o.url.replace('https://', '')}
+              </a>
+            )}
+          </div>
+                  ))}
+      </div>}
+
+      {/* Botón ocultar */}
       <button
         onClick={() => setObjOpen(!objOpen)}
         style={{
-          marginTop: 10,
-          background: 'rgba(255,255,255,0.2)',
-          border: '1px solid rgba(255,255,255,0.4)',
+          marginTop: 12,
+          background: 'rgba(255,255,255,0.15)',
+          border: '1px solid rgba(255,255,255,0.35)',
           color: '#fff',
           borderRadius: 8,
           padding: '6px 14px',
@@ -28,34 +87,11 @@ export default function Header({ objOpen, setObjOpen, objectives }) {
           fontWeight: 600,
         }}
       >
-        {objOpen ? '▲ Ocultar' : '▼ Ver'} Objetivos y Principios DaaP
+        {objOpen ? '▲ Ocultar objetivos' : '▼ Ver objetivos'}
       </button>
 
-      {objOpen && (
-        <div
-          className="grid-2col"
-          style={{
-            marginTop: 12,
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 8,
-          }}
-        >
-          {objectives.map(o => (
-            <div
-              key={o.label}
-              style={{
-                background: 'rgba(255,255,255,0.12)',
-                borderRadius: 8,
-                padding: '8px 10px',
-              }}
-            >
-              <div style={{ fontSize: 12, fontWeight: 700 }}>{o.icon} {o.label}</div>
-              <div style={{ fontSize: 11, opacity: 0.82, marginTop: 2 }}>{o.desc}</div>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Panel colapsable — solo al ocultar queda vacío el header */}
+      {!objOpen && null}
     </div>
   )
 }

@@ -66,11 +66,15 @@ const PARTS_INFO = [
 export default function RoadmapView() {
   return (
     <div style={{ fontFamily: "'Segoe UI', sans-serif" }}>
+
       {/* Header */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1e3a5f, #7c3aed)',
-        borderRadius: 16, padding: '22px 26px', marginBottom: 24, color: '#fff',
-      }}>
+      <div
+        data-print="card"
+        style={{
+          background: 'linear-gradient(135deg, #1e3a5f, #7c3aed)',
+          borderRadius: 16, padding: '22px 26px', marginBottom: 24, color: '#fff',
+        }}
+      >
         <div style={{ fontSize: 'clamp(18px,3vw,24px)', fontWeight: 900, letterSpacing: -0.5 }}>
           📅 Roadmap de Implementación
         </div>
@@ -78,18 +82,16 @@ export default function RoadmapView() {
           Inicio: <strong>9 de marzo de 2026</strong> · Equipo de 5 personas · Estimado optimista
         </div>
         <div style={{ display: 'flex', gap: 16, marginTop: 14, flexWrap: 'wrap' }}>
-          <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 16px' }}>
-            <div style={{ fontSize: 10, opacity: 0.8 }}>DURACIÓN TOTAL</div>
-            <div style={{ fontSize: 22, fontWeight: 900 }}>{TOTAL_DIAS} días</div>
-          </div>
-          <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 16px' }}>
-            <div style={{ fontSize: 10, opacity: 0.8 }}>ENTREGA ESTIMADA</div>
-            <div style={{ fontSize: 22, fontWeight: 900 }}>Nov 2026</div>
-          </div>
-          <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 16px' }}>
-            <div style={{ fontSize: 10, opacity: 0.8 }}>PARTES</div>
-            <div style={{ fontSize: 22, fontWeight: 900 }}>5 fases</div>
-          </div>
+          {[
+            { label: 'DURACIÓN TOTAL',    value: `${TOTAL_DIAS} días` },
+            { label: 'ENTREGA ESTIMADA',  value: 'Nov 2026' },
+            { label: 'PARTES',            value: '5 fases' },
+          ].map(s => (
+            <div key={s.label} style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: '8px 16px' }}>
+              <div style={{ fontSize: 10, opacity: 0.8 }}>{s.label}</div>
+              <div style={{ fontSize: 22, fontWeight: 900 }}>{s.value}</div>
+            </div>
+          ))}
         </div>
         <div style={{
           marginTop: 14, padding: '10px 14px',
@@ -97,17 +99,19 @@ export default function RoadmapView() {
           borderRadius: 10, fontSize: 12, lineHeight: 1.6,
         }}>
           ⚠️ <strong>Nota:</strong> Estimados optimistas asumiendo equipo a tiempo completo con experiencia en Azure y dbt.
-          El tiempo real depende significativamente del <strong>levantamiento de dominios, número de fuentes,
-          calidad de datos y disponibilidad de equipos fuente.</strong>
+          El tiempo real depende del <strong>levantamiento de dominios, número de fuentes, calidad de datos y disponibilidad de equipos fuente.</strong>
         </div>
       </div>
 
       {/* Timeline visual */}
-      <div style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
+      <div
+        data-print="card"
+        data-print-extra="roadmap-header"
+        style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}
+      >
         <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 16 }}>🗓️ Línea de Tiempo</div>
         {ROADMAP.map((h, i) => (
-          <div key={i} style={{ display: 'flex', gap: 14, marginBottom: i < ROADMAP.length - 1 ? 0 : 0 }}>
-            {/* Línea + punto */}
+          <div key={i} data-print="roadmap-phase" style={{ display: 'flex', gap: 14 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: 24, flexShrink: 0 }}>
               <div style={{
                 width: 16, height: 16, borderRadius: '50%',
@@ -120,16 +124,14 @@ export default function RoadmapView() {
                 <div style={{ width: 2, flex: 1, background: '#e2e8f0', minHeight: 28 }} />
               )}
             </div>
-            {/* Contenido */}
             <div style={{ paddingBottom: i < ROADMAP.length - 1 ? 20 : 0, flex: 1 }}>
               <div style={{ display: 'flex', gap: 10, alignItems: 'baseline', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, whiteSpace: 'nowrap' }}>{h.fecha}</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: '#1e293b' }}>{h.hito}</span>
                 {h.pct > 0 && (
-                  <span style={{
-                    background: h.color, color: '#fff',
-                    borderRadius: 99, padding: '1px 8px', fontSize: 10, fontWeight: 700,
-                  }}>{h.pct}%</span>
+                  <span style={{ background: h.color, color: '#fff', borderRadius: 99, padding: '1px 8px', fontSize: 10, fontWeight: 700 }}>
+                    {h.pct}%
+                  </span>
                 )}
               </div>
             </div>
@@ -138,53 +140,51 @@ export default function RoadmapView() {
       </div>
 
       {/* Barra de progreso total */}
-      <div style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
+      <div data-print="card" style={{ background: '#fff', borderRadius: 14, padding: 20, marginBottom: 20, boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 14 }}>📊 Progreso por Fase</div>
         <div style={{ display: 'flex', gap: 4, height: 32, borderRadius: 10, overflow: 'hidden' }}>
           {[
-            { label: 'Levantamiento', w: 5, color: '#64748b' },
-            { label: 'Fundación', w: 15, color: '#1d4ed8' },
-            { label: 'Transformar', w: 25, color: '#0f3460' },
-            { label: 'Semántica', w: 20, color: '#533483' },
-            { label: 'Aprovechar', w: 20, color: '#2d6a4f' },
-            { label: 'Orquestador', w: 15, color: '#1b4332' },
+            { label: 'Levantamiento', w: 5,  color: '#64748b' },
+            { label: 'Fundación',     w: 15, color: '#1d4ed8' },
+            { label: 'Transformar',   w: 25, color: '#0f3460' },
+            { label: 'Semántica',     w: 20, color: '#533483' },
+            { label: 'Aprovechar',    w: 20, color: '#2d6a4f' },
+            { label: 'Orquestador',   w: 15, color: '#1b4332' },
           ].map((s, i) => (
-            <div key={i} style={{
-              flex: s.w, background: s.color,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontSize: 9, color: '#fff', fontWeight: 700, writingMode: 'horizontal-tb', whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 4px' }}>
+            <div key={i} style={{ flex: s.w, background: s.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontSize: 9, color: '#fff', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', padding: '0 4px' }}>
                 {s.label}
               </span>
             </div>
           ))}
         </div>
         <div style={{ display: 'flex', gap: 4, marginTop: 4 }}>
-          {[5,15,25,20,20,15].map((w,i) => (
-            <div key={i} style={{ flex: w, fontSize: 9, color: '#94a3b8', textAlign: 'center' }}>
-              {w}%
-            </div>
+          {[5,15,25,20,20,15].map((w, i) => (
+            <div key={i} style={{ flex: w, fontSize: 9, color: '#94a3b8', textAlign: 'center' }}>{w}%</div>
           ))}
         </div>
       </div>
 
       {/* Fases detalladas */}
       <div style={{ fontWeight: 800, fontSize: 14, color: '#1e293b', marginBottom: 14 }}>🏗️ Detalle por Fase</div>
-      {PARTS_INFO.map((p, i) => (
-        <div key={p.id} style={{
-          background: '#fff', borderRadius: 14, padding: 20,
-          marginBottom: 14, boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
-          borderLeft: `4px solid ${p.color}`,
-        }}>
+      {PARTS_INFO.map((p) => (
+        <div
+          key={p.id}
+          data-print="roadmap-phase"
+          style={{
+            background: '#fff', borderRadius: 14, padding: 20,
+            marginBottom: 14, boxShadow: '0 1px 6px rgba(0,0,0,0.08)',
+            borderLeft: `4px solid ${p.color}`,
+          }}
+        >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
             <div>
               <div style={{ fontWeight: 800, fontSize: 15, color: '#1e293b' }}>{p.label}</div>
               <div style={{ display: 'flex', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
                 {p.capas.map(c => (
-                  <span key={c} style={{
-                    background: '#f1f5f9', border: '1px solid #e2e8f0',
-                    borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 600, color: '#475569',
-                  }}>{c}</span>
+                  <span key={c} style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '2px 8px', fontSize: 10, fontWeight: 600, color: '#475569' }}>
+                    {c}
+                  </span>
                 ))}
               </div>
             </div>
@@ -194,12 +194,10 @@ export default function RoadmapView() {
             </div>
           </div>
 
-          {/* Barra */}
           <div style={{ background: '#f1f5f9', borderRadius: 99, height: 6, marginBottom: 14, overflow: 'hidden' }}>
             <div style={{ width: `${p.pct}%`, background: p.color, height: '100%', borderRadius: 99 }} />
           </div>
 
-          {/* Entregables */}
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 }}>
               ✅ Entregables clave

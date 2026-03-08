@@ -11,6 +11,8 @@ import ToolsGrid from './components/ToolsGrid'
 import ProtagonistDetail from './components/ProtagonistDetail'
 import RoadmapView from './components/RoadmapView'
 import GlossaryView from './components/GlossaryView'
+import PrintButton from './components/PrintButton'
+import './print.css'
 
 const TOP_TABS = [
   { id: 'stack',    label: '🏗️ Stack' },
@@ -24,7 +26,7 @@ export default function App() {
   const [topTab, setTopTab]           = useState('stack')
   const [activePart, setActivePart]   = useState('overview')
   const [activeBlock, setActiveBlock] = useState(null)
-  const [objOpen, setObjOpen]         = useState(false)
+  const [objOpen, setObjOpen]         = useState(true)
 
   const part = partsConfig.find(p => p.id === activePart)
 
@@ -43,9 +45,9 @@ export default function App() {
 
         <Header objOpen={objOpen} setObjOpen={setObjOpen} objectives={objectives} />
 
-        {/* ── Tabs principales ── */}
+        {/* ── Tabs principales — ocultos en print ── */}
         {!activeBlock && (
-          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+          <div className="print-hide" style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
             {TOP_TABS.map(t => (
               <button key={t.id} onClick={() => handleTabChange(t.id)}
                 style={{
@@ -111,10 +113,18 @@ export default function App() {
           </div>
         )}
 
-        <div style={{ textAlign: 'center', fontSize: 10, color: '#94a3b8', marginTop: 24, paddingBottom: 8 }}>
+        <div className="print-hide" style={{ textAlign: 'center', fontSize: 10, color: '#94a3b8', marginTop: 24, paddingBottom: 8 }}>
           Modern Data Stack · Azure DaaP · {new Date().getFullYear()}
         </div>
+
+        {/* Pie de página solo en print */}
+        <div style={{ display: 'none' }} data-print="footer">
+          Modern Data Stack · Azure DaaP · {new Date().getFullYear()}
+        </div>
+
       </div>
+
+      <PrintButton />
     </div>
   )
 }
