@@ -56,3 +56,13 @@ export const partsConfig = [
 ]
 
 export const TOTAL_DIAS = '155–225'
+
+export const ROADMAP = [
+  { fecha: '9 Mar 2026',  hito: 'Presentación & Kick-off',                pct: 0,   color: '#64748b' },
+  { fecha: '24 Mar 2026', hito: 'Levantamiento de dominios y fuentes',    pct: 5,   color: '#64748b' },
+  { fecha: '7 May 2026',  hito: 'Parte 1 completa — Fundación (20%)',     pct: 20,  color: '#1d4ed8' },
+  { fecha: '7 Jul 2026',  hito: 'Parte 2 completa — Transformar (40%)',   pct: 40,  color: '#0f3460' },
+  { fecha: '21 Ago 2026', hito: 'Parte 3 completa — Semántica (60%)',     pct: 60,  color: '#533483' },
+  { fecha: '5 Oct 2026',  hito: 'Parte 4 completa — Aprovechar (80%)',    pct: 80,  color: '#2d6a4f' },
+  { fecha: '4 Nov 2026',  hito: '🏁 Stack completo en producción (100%)', pct: 100, color: '#1b4332' },
+]

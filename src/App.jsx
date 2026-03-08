@@ -8,11 +8,21 @@ import DiagramPart from './components/DiagramPart'
 import BlockDetail from './components/BlockDetail'
 import ProgressCard from './components/ProgressCard'
 import ToolsGrid from './components/ToolsGrid'
+import ProtagonistDetail from './components/ProtagonistDetail'
+import RoadmapView from './components/RoadmapView'
+
+const TOP_TABS = [
+  { id: 'stack',       label: '🏗️ Stack' },
+  { id: 'dbt',         label: '🟡 dbt' },
+  { id: 'fabric',      label: '🟣 Fabric' },
+  { id: 'roadmap',     label: '📅 Roadmap' },
+]
 
 export default function App() {
+  const [topTab, setTopTab]         = useState('stack')
   const [activePart, setActivePart] = useState('overview')
   const [activeBlock, setActiveBlock] = useState(null)
-  const [objOpen, setObjOpen] = useState(false)
+  const [objOpen, setObjOpen]       = useState(false)
 
   const part = partsConfig.find(p => p.id === activePart)
 
@@ -20,82 +30,75 @@ export default function App() {
     if (blockData[name]) setActiveBlock(name)
   }
 
+  const handleBack = () => setActiveBlock(null)
+
   return (
-    /* Fondo gris full-screen */
-    <div style={{
-      background: '#e2e8f0',
-      minHeight: '100vh',
-      padding: '32px 16px',
-    }}>
-      {/* Contenedor centrado tipo documento */}
-      <div style={{
-        maxWidth: 960,
-        margin: '0 auto',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 0,
-      }}>
-        <Header
-          objOpen={objOpen}
-          setObjOpen={setObjOpen}
-          objectives={objectives}
-        />
+    <div style={{ background: '#e2e8f0', minHeight: '100vh', padding: '28px 16px' }}>
+      <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexDirection: 'column' }}>
 
+        <Header objOpen={objOpen} setObjOpen={setObjOpen} objectives={objectives} />
+
+        {/* Tabs principales */}
         {!activeBlock && (
-          <NavParts
-            parts={partsConfig}
-            activePart={activePart}
-            setActivePart={setActivePart}
-          />
-        )}
-
-        {activeBlock ? (
-          <div style={{
-            background: '#fff',
-            borderRadius: 16,
-            padding: 24,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-          }}>
-            <BlockDetail
-              name={activeBlock}
-              onBack={() => setActiveBlock(null)}
-            />
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+            {TOP_TABS.map(t => (
+              <button key={t.id} onClick={() => { setTopTab(t.id); setActiveBlock(null) }}
+                style={{
+                  padding: '8px 18px', borderRadius: 10, border: 'none', cursor: 'pointer',
+                  fontSize: 13, fontWeight: 700,
+                  background: topTab === t.id ? '#1e3a5f' : '#fff',
+                  color: topTab === t.id ? '#fff' : '#374151',
+                  boxShadow: topTab === t.id ? '0 2px 10px rgba(0,0,0,0.18)' : '0 1px 3px rgba(0,0,0,0.08)',
+                  transition: 'all 0.2s',
+                }}
+              >{t.label}</button>
+            ))}
           </div>
-        ) : (
-          <>
-            {activePart !== 'overview' && (
-              <ProgressCard
-                part={part}
-                totalDias={TOTAL_DIAS}
-                partsConfig={partsConfig}
-              />
-            )}
-
-            <div style={{
-              background: '#fff',
-              borderRadius: 16,
-              padding: 20,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-              marginBottom: 14,
-            }}>
-              <DiagramPart
-                activeBlocks={part.activeBlocks}
-                onBlockClick={handleBlockClick}
-              />
-            </div>
-
-            <ToolsGrid activeBlocks={part.activeBlocks} />
-          </>
         )}
 
-        <div style={{
-          textAlign: 'center',
-          fontSize: 11,
-          color: '#94a3b8',
-          marginTop: 24,
-          paddingBottom: 8,
-        }}>
-          Modern Data Stack · Arquitectura Azure DaaP · {new Date().getFullYear()}
+        {/* ── TAB: STACK ── */}
+        {topTab === 'stack' && (
+          activeBlock ? (
+            <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
+              <BlockDetail name={activeBlock} onBack={handleBack} />
+            </div>
+          ) : (
+            <>
+              <NavParts parts={partsConfig} activePart={activePart} setActivePart={setActivePart} />
+              {activePart !== 'overview' && (
+                <ProgressCard part={part} totalDias={TOTAL_DIAS} partsConfig={partsConfig} />
+              )}
+              <div style={{ background: '#fff', borderRadius: 16, padding: 20, boxShadow: '0 2px 12px rgba(0,0,0,0.10)', marginBottom: 14 }}>
+                <DiagramPart activeBlocks={part.activeBlocks} onBlockClick={handleBlockClick} />
+              </div>
+              <ToolsGrid activeBlocks={part.activeBlocks} />
+            </>
+          )
+        )}
+
+        {/* ── TAB: DBT ── */}
+        {topTab === 'dbt' && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
+            <ProtagonistDetail name="DBT" onBack={() => setTopTab('stack')} />
+          </div>
+        )}
+
+        {/* ── TAB: FABRIC ── */}
+        {topTab === 'fabric' && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
+            <ProtagonistDetail name="FABRIC" onBack={() => setTopTab('stack')} />
+          </div>
+        )}
+
+        {/* ── TAB: ROADMAP ── */}
+        {topTab === 'roadmap' && (
+          <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 12px rgba(0,0,0,0.10)' }}>
+            <RoadmapView />
+          </div>
+        )}
+
+        <div style={{ textAlign: 'center', fontSize: 10, color: '#94a3b8', marginTop: 24, paddingBottom: 8 }}>
+          Modern Data Stack · Azure DaaP · {new Date().getFullYear()}
         </div>
       </div>
     </div>
